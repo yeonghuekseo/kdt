@@ -1,0 +1,23 @@
+{
+  // VS Code에서 F5(실행)를 누르면 .env 를 자동으로 읽어서 실행합니다.
+  // 터미널에서 직접 실행할 때는 아래와 동일합니다:
+  //   flutter run --dart-define-from-file=.env
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "kdt (debug, .env)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "toolArgs": ["--dart-define-from-file=.env"]
+    },
+    {
+      "name": "kdt (release, .env)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release",
+      "program": "lib/main.dart",
+      "toolArgs": ["--dart-define-from-file=.env"]
+    }
+  ]
+}
