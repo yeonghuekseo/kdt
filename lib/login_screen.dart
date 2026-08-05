@@ -4,7 +4,6 @@ import 'package:http/http.dart' as http;
 import 'signup_screen.dart';
 import 'screen_selection.dart';
 import 'api_config.dart';
-import 'app_theme.dart';   // 공통 테마 import
 import 'app_widgets.dart'; // 공통 버튼 & 입력창 컴포넌트 import
 
 // =============================================================================
