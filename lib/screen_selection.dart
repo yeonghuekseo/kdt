@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'screen_fruit_dashboard.dart';
 import 'api_config.dart';
+import 'app_theme.dart';
 
 // =============================================================================
 // [Screen 1] 과일 선택 & 슬라이더 방식 로봇 제어 화면
@@ -37,7 +38,6 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> {
 
   // 슬라이더 상태 값 (0.0: 정지 상태, 1.0: 순찰 동작 상태)
   double _sliderValue = 0.0;
-
   //중복 신호 방지를 위한 이전 전송 명령 상태 기록 변수
   String _lastSentCommand = 'stop';
 
@@ -60,16 +60,6 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(requestBody),
       );
-
-      // 💡 [이전 수정] 스낵바 팝업 메시지 비활성화
-      /*
-      if (response.statusCode == 200) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('✅ ${responseData['message']}')),
-        );
-      }
-      */
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -102,8 +92,7 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> {
         padding: const EdgeInsets.all(16.0), //전체 화면 바깥 여백 16px
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch, //자식 위젯 가로 폭 꽉 채우기
-          children: [
-            // 상단 사용자 프로필 요약 카드 영역
+          children: [ // 상단 사용자 프로필 요약 카드 영역
             Card(
               elevation: 2, //카드 그림자 높이
               child: Padding(
@@ -137,6 +126,8 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> {
                 final fruit = fruits[index];   // 현재 순번의 과일 정보 맵 추출
                 return ElevatedButton(
                   style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.buttonBg,
+                    foregroundColor: AppColors.buttonText,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),  // 모서리 둥글기 12px
                     ),
@@ -268,8 +259,8 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> {
                             style: ElevatedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 0), //버튼 세로 여백
                               backgroundColor: Colors.white,      //버튼 배경색 (흰색)
-                              foregroundColor: Colors.redAccent,  //버튼 텍스트/아이콘 색상
-                              side: const BorderSide(color: Colors.redAccent),  // 테두리 선 색상
+                              foregroundColor: AppColors.primary,  //버튼 텍스트/아이콘 색상
+                              side: const BorderSide(color: AppColors.primary),  // 테두리 선 색상
                             ),
                             //클릭 시 즉시 백엔드에 'return_home' 명령 전송
                             onPressed: () => _sendCommandToRobot('return_home'),

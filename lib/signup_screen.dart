@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:kdt/api_config.dart';
+import 'app_widgets.dart';
 
 // =============================================================================
 // [3] 신규 사용자 회원가입 화면 (Signup Screen)
@@ -83,29 +84,30 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('회원가입')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          children: [
-            TextField(controller: _idController, decoration: const InputDecoration(labelText: '아이디 (user_id)')),
-            const SizedBox(height: 12),
-            TextField(controller: _pwController, obscureText: true, decoration: const InputDecoration(labelText: '비밀번호 (password)')),
-            const SizedBox(height: 12),
-            TextField(controller: _nameController, decoration: const InputDecoration(labelText: '이름 (name)')),
-            const SizedBox(height: 12),
-            TextField(controller: _phoneController, decoration: const InputDecoration(labelText: '전화번호 (phone_number)')),
-            const SizedBox(height: 12),
-            TextField(controller: _emailController, decoration: const InputDecoration(labelText: '이메일 (email)')),
-            const SizedBox(height: 12),
-            TextField(controller: _countryController, decoration: const InputDecoration(labelText: '국가 (country)')),
-            const SizedBox(height: 24),
-            isLoading
-                ? const CircularProgressIndicator()
-                : ElevatedButton(
-              onPressed: _signup,
-              style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-              child: const Text('가입하기'),
+      appBar: AppBar(title: const Text('🍓 Ddalgi Farm 회원가입')),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+              children: [
+              // [수정] 모듈화된 커스텀 입력창들 사용
+              CustomTextField(controller: _idController, labelText: '아이디 (user_id)'),
+          const SizedBox(height: 12),
+          CustomTextField(controller: _pwController, labelText: '비밀번호 (password)', isPassword: true),
+          const SizedBox(height: 12),
+          CustomTextField(controller: _nameController, labelText: '이름 (name)'),
+          const SizedBox(height: 12),
+          CustomTextField(controller: _phoneController, labelText: '전화번호 (phone_number)', keyboardType: TextInputType.phone),
+          const SizedBox(height: 12),
+          CustomTextField(controller: _emailController, labelText: '이메일 (email)', keyboardType: TextInputType.emailAddress),
+          const SizedBox(height: 12),
+          CustomTextField(controller: _countryController, labelText: '국가 (country)'),
+          const SizedBox(height: 24),
+
+          // [수정] 공통 메인 가입 버튼
+          PrimaryButton(
+            text: '가입하기',
+            isLoading: isLoading,
+            onPressed: _signup,
             ),
           ],
         ),

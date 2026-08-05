@@ -5,8 +5,7 @@ import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'api_config.dart';
-
-// 💡 분리한 팝업 다이얼로그 import
+import 'app_theme.dart';
 import 'disease_alert_dialog.dart';
 
 // =============================================================================
@@ -171,7 +170,7 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Card(
-              color: Colors.red.shade100,
+              color: AppColors.alertCardBg,  //테마 배경색 적용
               elevation: 2,
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -217,7 +216,7 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
                       spots: chartPoints,
                       isCurved: true,
                       isStrokeCapRound: true,
-                      color: Colors.redAccent,
+                      color: AppColors.primary,  //차트선 색상 테마 적용
                       barWidth: 3,
                       dotData: const FlDotData(show: true),
                     ),
