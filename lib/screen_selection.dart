@@ -191,7 +191,7 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> {
                                   trackHeight: 28.0,  //슬라이더트랙막대두께
                                   activeTrackColor: AppColors.robotPanelBg, //비어있는 트랙 색상
                                   thumbColor: AppColors.sliderThumb,   //손잡이(thumb) 색상
-                                  overlayColor: AppColors.sliderActive.withOpacity(0.2), //터치 시 번지는 효과 색상
+                                  overlayColor: AppColors.sliderActive.withValues(alpha: 0.2), //터치 시 번지는 효과 색상
                                   showValueIndicator: ShowValueIndicator.never,  //팝업 툴팁(수치/라벨 표시)을 완전히 비활성화
                                   valueIndicatorShape: const EmptySliderLabelShape(),
                                   thumbShape: TextSliderThumbShape(
