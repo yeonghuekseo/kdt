@@ -189,9 +189,9 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> {
                               SliderTheme(
                                 data: SliderTheme.of(context).copyWith(
                                   trackHeight: 28.0,  //슬라이더트랙막대두께
-                                  activeTrackColor: Colors.red.shade50, //비어있는 트랙 색상
-                                  thumbColor: Colors.orange.shade200,    //손잡이(thumb) 색상
-                                  overlayColor: Colors.red.shade500, //터치 시 번지는 효과 색상
+                                  activeTrackColor: AppColors.robotPanelBg, //비어있는 트랙 색상
+                                  thumbColor: AppColors.sliderThumb,   //손잡이(thumb) 색상
+                                  overlayColor: AppColors.sliderActive.withOpacity(0.2), //터치 시 번지는 효과 색상
                                   showValueIndicator: ShowValueIndicator.never,  //팝업 툴팁(수치/라벨 표시)을 완전히 비활성화
                                   valueIndicatorShape: const EmptySliderLabelShape(),
                                   thumbShape: TextSliderThumbShape(
@@ -330,7 +330,7 @@ class TextSliderThumbShape extends SliderComponentShape {
     // 슬라이더 수치에 따라 (0.5 이상이면 동작, 미만이면 정지)
     final isDriving = value >= 0.5;
     final String text = isDriving ? '동작' : '정지';
-    final Color bgColor = isDriving ? Colors.redAccent : Colors.white;
+    final Color bgColor = isDriving ? AppColors.sliderActive : Colors.white;
     final Color textColor = isDriving ? Colors.white : Colors.black;
 
     // 1. 원형 핸들 배경 및 테두리 그리기
@@ -339,7 +339,7 @@ class TextSliderThumbShape extends SliderComponentShape {
       ..style = PaintingStyle.fill;
 
     final Paint borderPaint = Paint()
-      ..color = Colors.redAccent
+      ..color = AppColors.sliderActive
       ..strokeWidth = 2.0
       ..style = PaintingStyle.stroke;
 

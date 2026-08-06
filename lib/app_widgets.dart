@@ -77,6 +77,8 @@ class CustomTextField extends StatefulWidget {
   final String labelText;
   final bool isPassword;
   final TextInputType keyboardType;
+  //Form 유효성 검사를 위한 validator 콜백함수 정의
+  final String? Function(String?)? validator;
 
   const CustomTextField({
     super.key,
@@ -84,6 +86,7 @@ class CustomTextField extends StatefulWidget {
     required this.labelText,
     this.isPassword = false,
     this.keyboardType = TextInputType.text,
+    this.validator,
   });
 
   @override

@@ -25,6 +25,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool isLoading = false; //로그인 요청 진행 여부 상태 (true: 로딩 중,false: 대기 중)
 
+  // 메모리 누수 방지(Memory Leak Prevention)를 위한 dispose() 메서드
+  @override
+  void dispose() {
+    _idController.dispose(); //  ID 입력 컨트롤러 해제
+    _pwController.dispose(); //  PW 입력 컨트롤러 해제
+    super.dispose();
+  }
+
   /// [기능] 서버로 로그인 데이터(JSON) 전송 및 결과 처리
   Future<void> _login() async {
     //Controller에서 입력받은 텍스트를 가져오고 앞뒤 공백(.trim())제거
