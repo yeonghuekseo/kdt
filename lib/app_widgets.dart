@@ -98,10 +98,11 @@ class _CustomTextFieldState extends State<CustomTextField> {
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
+    return TextFormField(
       controller: widget.controller,
       obscureText: widget.isPassword ? _isObscure : false,
       keyboardType: widget.keyboardType,
+      validator: widget.validator,
       decoration: AppTheme.inputDecoration(
         widget.labelText,
         suffixIcon: widget.isPassword

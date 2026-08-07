@@ -16,7 +16,7 @@ class SignupScreen extends StatefulWidget {
 }
 
 class _SignupScreenState extends State<SignupScreen> {
-  final _formKey = GlobalKey<FormState>();            //폼 상태 제어하고 유혀성 검사 총괄
+  final _formKey = GlobalKey<FormState>();            //폼 상태 제어하고 유효성 검사 총괄
   final _idController = TextEditingController();
   final _pwController = TextEditingController();
   final _nameController = TextEditingController();
@@ -133,7 +133,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 //이름 (이름 + 2자 이상 검사)
                 CustomTextField(
                     controller: _nameController,
-                    labelText: '이름 (name)',
+                    labelText: '이름 *',
                     validator: AppValidators.validateName,
                     ),
                     const SizedBox(height: 12),
@@ -141,7 +141,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 //전화번호 (필수+ 정규식 형식 검사)
                 CustomTextField(
                   controller: _phoneController,
-                  labelText: '전화번호 (phone_number)',
+                  labelText: '전화번호 *',
                   keyboardType: TextInputType.phone,
                   validator: AppValidators.validatePhone,
                 ),
@@ -150,7 +150,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 //이메일
                 CustomTextField(
                     controller: _emailController,
-                    labelText: '이메일 (email)',
+                    labelText: '이메일 *',
                     keyboardType: TextInputType.emailAddress,
                     validator: AppValidators.validateEmail,
                 ),
@@ -158,7 +158,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
                 CustomTextField(
                     controller: _countryController,
-                    labelText: '국가 (country)',
+                    labelText: '국가',
                     validator: AppValidators.validateCountry,
                 ),
                 const SizedBox(height: 24),

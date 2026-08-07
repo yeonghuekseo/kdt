@@ -26,7 +26,9 @@ class FruitSelectionScreen extends StatefulWidget {
 class _FruitSelectionScreenState extends State<FruitSelectionScreen> {
   //[상태 변수정의]
   String currentRobotId = 'R001';  //제어할 대상 로봇 식별 ID
-  String currentZoneId = 'zone01';    //제어할 대상 구역 식별 ID
+  String currentTargetZone = 'zone01';
+  final List<String> availableZones = ['zone01', 'zone02', 'zone03'];
+
 
   // 화면에 띄울 과일 정보 목록 (이름, 아이콘, 백엔드 전송용 과일코드)
   final List<Map<String, String>> fruits = [
@@ -49,10 +51,9 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> {
       final url = Uri.parse(ApiConfig.robotCommandUrl);
 
       final Map<String, dynamic> requestBody = {
-        'user_id': widget.currentUserId,
-        'robot_id': currentRobotId,
-        'command': command,
-        'zone_id': currentZoneId,
+        'command': command, //명령어 (start_patrol, return_home 등)
+        'target_zone': currentTargetZone, //목표 구역 식별자
+        'timestamp': DateTime.now().toString().substring(0,19)  //전송시간
       };
 
       await http.post(
@@ -178,7 +179,31 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> {
                       '🤖 로봇 제어 패널',
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 16),
+                    // 구역 선택 드롭다운 메뉴
+                    Row(
+                      children: [
+                        const Text('목표 구역: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        DropdownButton<String>(
+                          value: currentTargetZone,
+                          isDense: true,
+                          underline: const SizedBox(),
+                          items: availableZones.map((String zone) {
+                            return DropdownMenuItem<String>(
+                              value: zone,
+                              child: Text(zone, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                            );
+                          }).toList(),
+                          onChanged: (String? newValue) {
+                            if (newValue != null) {
+                              setState(() {
+                                currentTargetZone = newValue; // 💡 선택한 구역 변경
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                const SizedBox(height: 16),
                     Row(
                       children: [
                         //왼쪽영역 5/6 비율을 차지하는 두꺼운 슬라이더 제어부
@@ -282,17 +307,18 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> {
                         ),
                       ],
                     ),
-                  ],
-                ),
+                ],
               ),
             ),
+      ),
             const SizedBox(height: 20),
           ],
+         ),
         ),
-      ),
     );
   }
 }
+
 
 //  슬라이더 조작 핸들(원형 버튼) 내부에 위치 수치(value)에 맞춰
 // '정지' 또는 '동작' 글자와 배경 색상을 직접 렌더링하도록 새로 추가된 커스텀 클래스

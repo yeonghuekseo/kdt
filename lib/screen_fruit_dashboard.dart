@@ -42,36 +42,43 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _loadInitialData();
-    _initMqtt();
+    _loadInitialData();    // 과거 기록 데이터 (REST API) 로드
+    _initMqtt();           // 실시간 데이터 (MQTT) 구독 시작
   }
 
-  /// REST GET: 선택 과일 데이터 백엔드 로드
+  /// REST GET: 백엔드에서 초기 기록 10개 가져오기
   Future<void> _loadInitialData() async {
     try {
-      final url = Uri.parse('${ApiConfig.dashboardLogsUrl}?fruit=${widget.selectedFruitCode}');
+      final url = Uri.parse(ApiConfig.envLogsUrl(widget.currentUserId));
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        List<FlSpot> loadedSpots = [];
+        final Map<String,dynamic> responseData = jsonDecode(response.body);
 
-        for (int i = 0; i < data.length; i++) {
-          double yValue = (data[i]['temperature'] ?? data[i]['y'] ?? 0.0).toDouble();
-          loadedSpots.add(FlSpot(i.toDouble(), yValue));
+        //  백엔드 응답 형식 {"status": "success", "data": [...]} 분석 및 예외 처리
+        if (responseData['status'] == 'success' && responseData['data'] != null) {
+          final List<dynamic> logs = responseData['data'];
+          List<FlSpot> loadedSpots = [];
+
+
+          for (int i = 0; i < logs.length; i++) {
+            //온도 데이터 필드명: 'temperature'
+            double yValue = (logs[i]['temperature'] ?? 0.0).toDouble();
+            loadedSpots.add(FlSpot(i.toDouble(), yValue));
+          }
+
+          setState(() {
+            chartPoints = loadedSpots;
+            xCounter = loadedSpots.length;
+          });
         }
-
-        setState(() {
-          chartPoints = loadedSpots;
-          xCounter = loadedSpots.length;
-        });
       }
     } catch (e) {
-      debugPrint('❌ DB 데이터 로드 실패: $e');
+      debugPrint('❌ 최근 환경 로그 데이터 로드 실패: $e');
     }
   }
 
-  /// MQTT 통신 연결
+  // MQTT 통신 연결 및 수신 핸들러 등록
   Future<void> _initMqtt() async {
     final String clientId = 'flutter_${widget.currentUserId}_${DateTime.now().millisecondsSinceEpoch}';
 
@@ -89,12 +96,15 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
       await client!.connect();
       setState(() => isConnected = true);
 
-      final String envTopic = 'ddalgi/env/log/${widget.selectedFruitCode}';
-      client!.subscribe(envTopic, MqttQos.atMostOnce);
+      // 로봇의 실시간 상태/센서 보고 토픽 구독 (3-1)
+      const String robotStatusTopic = 'ddalgi/robot/status';
+      client!.subscribe(robotStatusTopic, MqttQos.atMostOnce);
 
-      final String alertTopic = 'ddalgi/alert/disease/${widget.currentUserId}';
+      // 병충해 실시간 경고 토픽 구독 (4-1)
+      final String alertTopic = ApiConfig.diseaseAlertTopic(widget.currentUserId);
       client!.subscribe(alertTopic, MqttQos.atMostOnce);
 
+      //MQTT 메시지 수신 이벤트 리스너
       client!.updates!.listen((List<MqttReceivedMessage<MqttMessage>> c) {
         final MqttPublishMessage recMess = c[0].payload as MqttPublishMessage;
         final String pt = MqttPublishPayload.bytesToStringAsString(recMess.payload.message);
@@ -102,9 +112,12 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
         final String receivedTopic = c[0].topic;
         final Map<String, dynamic> data = jsonDecode(pt);
 
-        if (receivedTopic == envTopic) {
+        // 로봇 데이터 수신시 _parseAndUpdateGraph를 호출
+        if (receivedTopic == robotStatusTopic) {
           _parseAndUpdateGraph(data);
-        } else if (receivedTopic == alertTopic) {
+        }
+        //병충해 경고 수신시 알림 팝업 호출
+        if (receivedTopic == alertTopic) {
           _handleDiseaseAlert(data);
         }
       });
@@ -115,16 +128,20 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
     }
   }
 
+  //MQTT로 들어온 실시간 온습도 데이터를 차트에 즉시 추가하는 함수
   void _parseAndUpdateGraph(Map<String, dynamic> data) {
-    double value = (data['temperature'] ?? data['y'] ?? 0.0).toDouble();
+    double value = (data['temperature'] ?? 0.0).toDouble();
     setState(() {
+      //(X: 시간순서, Y: 온도값)을 차트 데이터 배열에 추가
       chartPoints.add(FlSpot(xCounter.toDouble(), value));
       xCounter++;
+
+      //차트 그래프가 너무 빽빽해지지 않도록 최근 20개 점만 유지
       if (chartPoints.length > 20) chartPoints.removeAt(0);
     });
   }
 
-  // 💡 백엔드 비전 알림 처리 (독립된 팝업 클래스 호출)
+  // 병충해 감지 푸시 백엔드 비전 알림 처리 (독립된 팝업 클래스 호출)
   void _handleDiseaseAlert(Map<String, dynamic> alertData) {
     setState(() {
       _alertLogs.insert(0, alertData);
@@ -197,7 +214,7 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
             ),
             const SizedBox(height: 16),
 
-            const Text('📊 실시간 분석결과..', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text('📊 실시간 온습도 환경 분석 그래프', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             SizedBox(
               height: 180,
