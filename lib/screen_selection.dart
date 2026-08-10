@@ -1,17 +1,13 @@
-import 'dart:convert';
+// lib/screen_selection.dart
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'screen_fruit_dashboard.dart';
-import 'api_config.dart';
 import 'app_theme.dart';
+import 'robot_control_service.dart';
+import 'custom_slider_thumb.dart'; // 💡 새롭게 만든 시냇물 트랙과 조약돌 썸을 가져옵니다.
 
-// =============================================================================
-// [Screen 1] 과일 선택 & 슬라이더 방식 로봇 제어 화면
-// =============================================================================
 class FruitSelectionScreen extends StatefulWidget {
-  //이전 화면(로그인)에서 전달받는 전달인자(파라미터)
-  final String currentUserId;       // 현재 로그인한 사용자ID
-  final String currentUserName;     // 현재 로그인한 사용자 이름
+  final String currentUserId;
+  final String currentUserName;
 
   const FruitSelectionScreen({
     super.key,
@@ -20,17 +16,16 @@ class FruitSelectionScreen extends StatefulWidget {
   });
 
   @override
+  // 💡 [핵심 원리] 물결 애니메이션을 무한 반복시키기 위해 SingleTickerProviderStateMixin을 추가합니다.
   State<FruitSelectionScreen> createState() => _FruitSelectionScreenState();
 }
 
-class _FruitSelectionScreenState extends State<FruitSelectionScreen> {
-  //[상태 변수정의]
-  String currentRobotId = 'R001';  //제어할 대상 로봇 식별 ID
+class _FruitSelectionScreenState extends State<FruitSelectionScreen> with SingleTickerProviderStateMixin {
+  final RobotControlService _robotService = RobotControlService();
+
   String currentTargetZone = 'zone01';
   final List<String> availableZones = ['zone01', 'zone02', 'zone03'];
 
-
-  // 화면에 띄울 과일 정보 목록 (이름, 아이콘, 백엔드 전송용 과일코드)
   final List<Map<String, String>> fruits = [
     {'name': '딸기', 'icon': '🍓', 'code': 'strawberry'},
     {'name': '사과', 'icon': '🍎', 'code': 'apple'},
@@ -38,103 +33,72 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> {
     {'name': '복숭아', 'icon': '🍑', 'code': 'peach'},
   ];
 
-  // 슬라이더 상태 값 (0.0: 정지 상태, 1.0: 순찰 동작 상태)
   double _sliderValue = 0.0;
-  //중복 신호 방지를 위한 이전 전송 명령 상태 기록 변수
-  String _lastSentCommand = 'stop';
 
-  // [네트워크 API 통신함수]
-  // 기능> 백엔드 서버로 로봇 제어 명령(stop,start_patrol,return_home) 전송(REST POST)
-  // 파라미터> command: 로봇에게 보낼 명령 문자열
-  Future<void> _sendCommandToRobot(String command) async {
-    try {
-      final url = Uri.parse(ApiConfig.robotCommandUrl);
+  // 💡 [신규 변수] 물결이 계속해서 흐르도록 시간을 세어줄 애니메이션 타이머(컨트롤러)입니다.
+  late AnimationController _waveController;
 
-      final Map<String, dynamic> requestBody = {
-        'command': command, //명령어 (start_patrol, return_home 등)
-        'target_zone': currentTargetZone, //목표 구역 식별자
-        'timestamp': DateTime.now().toString().substring(0,19)  //전송시간
-      };
-
-      await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(requestBody),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ 통신 실패: $e')),
-      );
-    }
+  @override
+  void initState() {
+    super.initState();
+    // 💡 2초 동안 0.0 -> 1.0으로 값이 변하는 타이머를 만들고, 영원히 반복(repeat)시킵니다.
+    // 이 타이머 덕분에 시냇물 파동이 멈추지 않고 흘러갑니다.
+    _waveController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
   }
 
-  // [슬라이더 조작 및 텍스트 반환 헬퍼 함수]
-  //기능>> 슬라이더 이동 완료 후 값을 상태에 반영하고 백엔드로 해당 명령 전송
-  //파라미터>> value: 슬라이더의 최종 위치 값(0.0또는 1.0)
-  void _sendSingleCommandForValue(double targetValue) {
-    String newCommand = (targetValue == 1.0) ? 'start_patrol' : 'stop';
-
-    //기존 명령과 다를 때만 (실제 상태가 전환되었을 때만) 단 한 번 신호 전송
-    if (_lastSentCommand != newCommand) {
-      _lastSentCommand = newCommand;   //마지막 전송 상태 갱신
-      _sendCommandToRobot(newCommand); //백엔드로 신호 1회 전송
-    }
+  @override
+  void dispose() {
+    // 💡 화면이 꺼지면 메모리 낭비를 막기 위해 물결 타이머도 반드시 부숴줍니다.
+    _waveController.dispose();
+    super.dispose();
   }
 
-  // [UI 레이아웃 빌드 메서드]
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('농장 과일 선택 & 제어'),  //상단 앱바 제목
-      ),
+      appBar: AppBar(title: const Text('농장 과일 선택 & 제어')),
       body: Padding(
-        padding: const EdgeInsets.all(16.0), //전체 화면 바깥 여백 16px
+        padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch, //자식 위젯 가로 폭 꽉 채우기
-          children: [ // 상단 사용자 프로필 요약 카드 영역
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ----- 1. 상단 프로필 및 과일 선택 영역 (고정 크기) -----
             Card(
-              elevation: 2, //카드 그림자 높이
+              color: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               child: Padding(
                 padding: const EdgeInsets.all(12.0),
                 child: Text(
-                  '반갑습니다, ${widget.currentUserName}님! (${widget.currentUserId})',
+                  '반갑습니다, ${widget.currentUserName}님! 🌱',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 16),
                 ),
               ),
             ),
-            const SizedBox(height: 20), //위아래 간격 20px
+            const SizedBox(height: 20),
 
-            // 중앙 과일 선택 그리드 영역
-            const Text(
-              '🍓 모니터링할 과일을 선택하세요',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            const Text(' 모니터링할 과일을 선택하세요', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             GridView.builder(
-              shrinkWrap: true, //자식 요소 높이 합만큼만 그리도 세로 높이 차지
-              physics: const NeverScrollableScrollPhysics(), //그리드 자체 내부 스크롤 비활성화
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2, //2열 격자 배치
-                childAspectRatio: 1.0, //가로/세로 비육
-                crossAxisSpacing: 10, //아이템 간 가로 간격 10px
-                mainAxisSpacing: 6,   //아이템 간 세로 간격 6px
+                crossAxisCount: 2, childAspectRatio: 1.1, crossAxisSpacing: 12, mainAxisSpacing: 12,
               ),
-              itemCount: fruits.length,     //생성할 그리드 아이템 총 개수 (4개)
-              itemBuilder: (context, index) {  //index(0~3)에 따라 그리드 아이템 반복 생성
-                final fruit = fruits[index];   // 현재 순번의 과일 정보 맵 추출
+              itemCount: fruits.length,
+              itemBuilder: (context, index) {
+                final fruit = fruits[index];
                 return ElevatedButton(
+                  // ... 과일 버튼 설정 유지 ...
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.buttonBg,
-                    foregroundColor: AppColors.buttonText,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),  // 모서리 둥글기 12px
-                    ),
+                    backgroundColor: AppColors.buttonBg, foregroundColor: AppColors.buttonText, elevation: 0,
+                    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.only(topLeft: Radius.circular(24), bottomRight: Radius.circular(24), topRight: Radius.circular(8), bottomLeft: Radius.circular(8),)),
                   ),
                   onPressed: () {
-                    // 해당 과일 클릭 시 해당 과일 전용 대시보드 화면으로 이동
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -149,277 +113,149 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> {
                     );
                   },
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center, //내용물 중앙 정렬
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(fruit['icon']!, style: const TextStyle(fontSize: 36)), // 과일 이모지
+                      Text(fruit['icon']!, style: const TextStyle(fontSize: 40)),
                       const SizedBox(width: 8),
-                      Text(
-                        fruit['name']!, // 과일 이름
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      Text(fruit['name']!, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                     ],
                   ),
                 );
               },
             ),
-            const Spacer(),
+            const SizedBox(height: 16), // 그리드와 하단 패널 사이의 여백
 
-            // 하단 슬라이더& 귀환 버튼 로봇 제어 패널
-            Card(
-              color: Colors.red.shade50,  //패널 연분홍 배경색
-              elevation: 3,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    const Text(
-                      '🤖 로봇 제어 패널',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    // 구역 선택 드롭다운 메뉴
-                    Row(
-                      children: [
-                        const Text('목표 구역: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                        DropdownButton<String>(
-                          value: currentTargetZone,
-                          isDense: true,
-                          underline: const SizedBox(),
-                          items: availableZones.map((String zone) {
-                            return DropdownMenuItem<String>(
-                              value: zone,
-                              child: Text(zone, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                            );
-                          }).toList(),
-                          onChanged: (String? newValue) {
-                            if (newValue != null) {
-                              setState(() {
-                                currentTargetZone = newValue; // 💡 선택한 구역 변경
-                              });
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        //왼쪽영역 5/6 비율을 차지하는 두꺼운 슬라이더 제어부
-                        Expanded(
-                          flex:6,  // Row 내부 공간 비율 (4)
-                          child: Column(
-                            children: [
-                              SliderTheme(
-                                data: SliderTheme.of(context).copyWith(
-                                  trackHeight: 28.0,  //슬라이더트랙막대두께
-                                  activeTrackColor: AppColors.robotPanelBg, //비어있는 트랙 색상
-                                  thumbColor: AppColors.sliderThumb,   //손잡이(thumb) 색상
-                                  overlayColor: AppColors.sliderActive.withValues(alpha: 0.2), //터치 시 번지는 효과 색상
-                                  showValueIndicator: ShowValueIndicator.never,  //팝업 툴팁(수치/라벨 표시)을 완전히 비활성화
-                                  valueIndicatorShape: const EmptySliderLabelShape(),
-                                  thumbShape: TextSliderThumbShape(
-                                    value: _sliderValue,
-                                    thumbRadius: 22.0,
-                                  ),
-                                ),
-                              child: Slider(
-                                value: _sliderValue,  //(현재 슬라이더 가리킴 값 (0.0 ~ 1.0)
-                                min: 0.0,             //슬라이더 최소값
-                                max: 1.0,             //슬라이더 최대값
-                                // 드래그 중에는 UI 위치만 업데이트하고, 신호는 절대 보내지 않음
-                                onChanged: (value) {
-                                  setState(() {
-                                    _sliderValue = value;
-                                  });
-                                },
-                                // 손가락을 뗏을 때 nearest target(0.0 또는 1.0)으로 스르륵 스냅 애니메이션
-                                  onChangeEnd: (value) async {
-                                  //0.5 미만이면 0.0(정지), 이상이면 1.0(동작)을 타겟으로 설정
-                                  double targetValue = value >=0.5 ? 1.0 : 0.0;
-                                  int steps = 50;               //애니메이션 프레잌 단계수
-                                  double startValue = _sliderValue; //드래그 완료 시점 시작 값
-                                  double diff = targetValue - startValue; //이동할 총 거릿값
-
-                                  // 15ms 마다 조금씩 슬라이더  변경하여 부드러운 스냅 모션 구현
-                                  for(int i = 1; i <= steps; i++ ) {
-                                    await Future.delayed(const Duration(milliseconds: 15));
-                                    if(!mounted) return;
-                                    setState(() {
-                                      _sliderValue = startValue + (diff*(i/steps));
-                                    });
-                                  }
-
-                                  //위치 지정 및 애니메이션 종료 후 최종 수치 확정
-                                    setState(() {
-                                      _sliderValue = targetValue;
-                                    });
-                                  // 전환이 완전히 끝난 후 단 한 번만 백엔드로 명령 전송!
-                                   _sendSingleCommandForValue(targetValue);
-                                },
-                               ),
-                              ),
-                              const SizedBox(height:6),
-                              // 슬라이더 양 끝 '정지/동작' 안내 문구
-                              const Padding(
-                                padding: EdgeInsets.symmetric(horizontal:16.0),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween, //양 끝으로 배치
-                                  children: [
-                                    Text('⏹️ 정지', style: TextStyle(fontSize: 12)),
-                                    Text('▶️ 동작', style: TextStyle(fontSize: 12)),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          )
-                        ),
-                        const SizedBox(width: 8),
-
-                        // 오른쪽 영역 5/1 비율을 차지하는 독립 원터치 귀환 버튼
-                        Expanded(
-                          flex: 1,  //Row 내부 공간 비율(1)
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 0), //버튼 세로 여백
-                              backgroundColor: Colors.white,      //버튼 배경색 (흰색)
-                              foregroundColor: AppColors.primary,  //버튼 텍스트/아이콘 색상
-                              side: const BorderSide(color: AppColors.primary),  // 테두리 선 색상
-                            ),
-                            //클릭 시 즉시 백엔드에 'return_home' 명령 전송
-                            onPressed: () => _sendCommandToRobot('return_home'),
-                            child: const Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
+            // =================================================================
+            // 💡 [수정 이유 및 원리: 하단 공간을 지배하는 초대형 제어 패널]
+            // Expanded를 적용하여, 기기 화면이 길든 짧든 남는 아래쪽 공간을
+            // 이 카드가 100% 꽉 채우도록(중간으로 채워넣기) 강제합니다.
+            // =================================================================
+            Expanded(
+              child: Card(
+                color: AppColors.robotPanelBg,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0), // 상하 여백 넉넉히
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // --- 패널 1층: 제목과 귀환 버튼 ---
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Row(
                               children: [
-                                Icon(Icons.home, size: 20),
-                                SizedBox(height: 4),
-                                Text(
-                                  '귀환',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
+                                Icon(Icons.smart_toy_rounded, color: AppColors.primary),
+                                SizedBox(width:8),
+                                Text('로봇 제어 패널', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.buttonText)),
+                              ]
+                          ),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white, foregroundColor: AppColors.linkText, elevation: 0,
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                              side: const BorderSide(color: AppColors.linkText, width: 1.0),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            ),
+                            onPressed: () => _robotService.sendCommandToRobot('return_home', currentTargetZone, onError: (errorMsg) {}),
+                            icon: const Icon(Icons.home, size: 18),
+                            label: const Text('귀환', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          ),
+                        ],
+                      ),
+
+                      // --- 패널 2층: 광활하게 펼쳐지는 두꺼운 시냇물 슬라이더 ---
+                      // 💡 또 한 번 Expanded를 써서, 제목과 구역 선택칸을 뺀 나머지 모든 공간을 슬라이더가 다 먹게 합니다!
+                      Expanded(
+                        // 💡 [핵심 원리] AnimatedBuilder: 물결 애니메이션 타이머가 틱(Tick)할 때마다 슬라이더를 실시간으로 다시 그려냅니다. (이게 없으면 시냇물이 멈춰있습니다)
+                        child: AnimatedBuilder(
+                            animation: _waveController,
+                            builder: (context, child) {
+                              return SliderTheme(
+                                data: SliderTheme.of(context).copyWith(
+                                  // 🛠️ [파라미터 조정 가이드] 트랙 두께를 기존 28.0에서 무려 60.0으로 2배 이상 키워 두껍고 시원시원하게 만들었습니다!
+                                  trackHeight: 60.0,
+                                  overlayShape: SliderComponentShape.noOverlay,
+                                  showValueIndicator: ShowValueIndicator.never,
+
+                                  // 💡 [교체] 방금 만든 커스텀 시냇물 트랙을 끼워 넣고, 타이머(_waveController)를 건네줍니다.
+                                  trackShape: StreamFlowTrackShape(waveAnimation: _waveController),
+
+                                  // 💡 [교체] 조약돌 썸은 유지하되 사이즈를 조금 더 키웁니다.
+                                  thumbShape: StreamPebbleThumbShape(
+                                    value: _sliderValue,
+                                    thumbRadius: 24.0, // 두꺼워진 트랙에 맞게 손잡이도 조금 더 키웠습니다.
                                   ),
                                 ),
-                              ],
-                            ),
-                          ),
+                                child: Slider(
+                                  value: _sliderValue,
+                                  min: 0.0,
+                                  max: 1.0,
+                                  onChanged: (value) {
+                                    setState(() { _sliderValue = value; });
+                                  },
+                                  onChangeEnd: (value) async {
+                                    // 스냅 애니메이션
+                                    double targetValue = value >= 0.5 ? 1.0 : 0.0;
+                                    int steps = 40;
+                                    double startValue = _sliderValue;
+                                    double diff = targetValue - startValue;
+                                    for(int i = 1; i <= steps; i++ ) {
+                                      await Future.delayed(const Duration(milliseconds: 12));
+                                      if(!mounted) return;
+                                      setState(() { _sliderValue = startValue + (diff * (i / steps)); });
+                                    }
+                                    setState(() { _sliderValue = targetValue; });
+                                    _robotService.sendSingleCommandForValue(targetValue, currentTargetZone, onError: (errorMsg) {});
+                                  },
+                                ),
+                              );
+                            }
                         ),
-                      ],
-                    ),
-                ],
+                      ),
+
+                      // --- 패널 지하 1층: 구역(Zone) 선택 영역 ---
+                      // 💡 [수정 이유] 요청에 따라 "목표 구역 띄워주는 화면을 패널 밑에 넣어서" 배치했습니다.
+                      // 상단에 있던 메뉴가 카드 맨 밑바닥으로 이동하여 안정감을 줍니다.
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16), // 둥근 흰색 박스로 감싸서 디자인 완성도 업!
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center, // 텍스트를 중앙 정렬합니다.
+                          children: [
+                            const Text('현재 이동 목표 구역: ', style: TextStyle(fontSize: 14, color: AppColors.inputLabel, fontWeight: FontWeight.bold)),
+                            const SizedBox(width: 8),
+                            DropdownButton<String>(
+                              value: currentTargetZone,
+                              isDense: true,
+                              underline: const SizedBox(),
+                              icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.linkText),
+                              items: availableZones.map((String zone) {
+                                return DropdownMenuItem<String>(
+                                  value: zone,
+                                  child: Text(zone),
+                                );
+                              }).toList(),
+                              onChanged: (String? newValue) {
+                                if (newValue != null) setState(() { currentTargetZone = newValue; });
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-      ),
-            const SizedBox(height: 20),
           ],
-         ),
         ),
-    );
-  }
-}
-
-
-//  슬라이더 조작 핸들(원형 버튼) 내부에 위치 수치(value)에 맞춰
-// '정지' 또는 '동작' 글자와 배경 색상을 직접 렌더링하도록 새로 추가된 커스텀 클래스
-class TextSliderThumbShape extends SliderComponentShape {
-  final double value;
-  final double thumbRadius;
-
-  const TextSliderThumbShape({
-    required this.value,
-    this.thumbRadius = 20.0,
-  });
-
-  @override
-  Size getPreferredSize(bool isEnabled, bool isDiscrete) {
-    return Size.fromRadius(thumbRadius);
-  }
-
-  @override
-  void paint(
-      PaintingContext context,
-      Offset center, {
-        required Animation<double> activationAnimation,
-        required Animation<double> enableAnimation,
-        required bool isDiscrete,
-        required TextPainter labelPainter,
-        required RenderBox parentBox,
-        required SliderThemeData sliderTheme,
-        required TextDirection textDirection,
-        required double value,
-        required double textScaleFactor,
-        required Size sizeWithOverflow,
-      }) {
-    final Canvas canvas = context.canvas;
-
-    // 슬라이더 수치에 따라 (0.5 이상이면 동작, 미만이면 정지)
-    final isDriving = value >= 0.5;
-    final String text = isDriving ? '동작' : '정지';
-    final Color bgColor = isDriving ? AppColors.sliderActive : Colors.white;
-    final Color textColor = isDriving ? Colors.white : Colors.black;
-
-    // 1. 원형 핸들 배경 및 테두리 그리기
-    final Paint fillPaint = Paint()
-      ..color = bgColor
-      ..style = PaintingStyle.fill;
-
-    final Paint borderPaint = Paint()
-      ..color = AppColors.sliderActive
-      ..strokeWidth = 2.0
-      ..style = PaintingStyle.stroke;
-
-    canvas.drawCircle(center, thumbRadius, fillPaint);
-    canvas.drawCircle(center, thumbRadius, borderPaint);
-
-    // 2. 핸들 정중앙에 '정지' / '동작' 글자 그리기
-    final TextSpan span = TextSpan(
-      style: TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.bold,
-        color: textColor,
       ),
-      text: text,
     );
-
-    final TextPainter tp = TextPainter(
-      text: span,
-      textAlign: TextAlign.center,
-      textDirection: TextDirection.ltr,
-    );
-
-    tp.layout();
-    final Offset textOffset = Offset(
-      center.dx - (tp.width / 2),
-      center.dy - (tp.height / 2),
-    );
-
-    tp.paint(canvas, textOffset);
-  }
-}
-
-// 💡 슬라이더 팝업 말풍선을 아예 그리지 않도록 무력화하는 커스텀 클래스
-class EmptySliderLabelShape extends SliderComponentShape {
-  const EmptySliderLabelShape();
-
-  @override
-  Size getPreferredSize(bool isEnabled, bool isDiscrete) => Size.zero;
-
-  @override
-  void paint(
-      PaintingContext context,
-      Offset center, {
-        required Animation<double> activationAnimation,
-        required Animation<double> enableAnimation,
-        required bool isDiscrete,
-        required TextPainter labelPainter,
-        required RenderBox parentBox,
-        required SliderThemeData sliderTheme,
-        required TextDirection textDirection,
-        required double value,
-        required double textScaleFactor,
-        required Size sizeWithOverflow, // 👈 [핵심] size가 아니라 sizeWithOverflow로 지정
-      }) {
-    // 말풍선을 그리지 않고 빈 상태로 유지
   }
 }

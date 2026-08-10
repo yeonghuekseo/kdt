@@ -14,7 +14,7 @@ class PrimaryButton extends StatelessWidget {
     required this.text,
     required this.onPressed,
     this.isLoading = false,
-    this.height = 50.0,
+    this.height = 54.0,
   });
 
   @override
@@ -32,10 +32,17 @@ class PrimaryButton extends StatelessWidget {
       height: height,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.buttonBg,
-          foregroundColor: AppColors.buttonText,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+          backgroundColor: AppColors.primary, //강조를 위해 녹색사용
+          foregroundColor: Colors.white,
+          elevation: 2, //살짝 떠오른 느낌의 그림자
+          //[디자인 포인트] 나뭇잎 모양 유지
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(24),
+              bottomRight: Radius.circular(24),
+              topRight: Radius.circular(8),
+              bottomLeft: Radius.circular(8),
+            ),
           ),
         ),
         onPressed: onPressed,

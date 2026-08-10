@@ -18,6 +18,9 @@ class ApiConfig {
   static const String robotRegisterUrl = '$baseUrl/api/robot/register';
   // 1-4. 구역 설정 API (필요 시 사용)
   static const String zoneSetupUrl = '$baseUrl/api/zone/setup';
+  // 1-5. 데이터 완전 삭제
+  static const String dataResetUrl = '$baseUrl/api/zones/batch/manage';
+
 
   // 3-4. 로봇 제어 명령 전송 API (POST /api/robot/command)
   static const String robotCommandUrl = '$baseUrl/api/robot/command';
