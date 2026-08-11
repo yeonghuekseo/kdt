@@ -1,9 +1,7 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'api_config.dart';
-import 'app_widgets.dart';
-import 'app_theme.dart';
+import '../widgets/app_widgets.dart'; // 수정: widgets 폴더
+import '../core/app_validators.dart'; // 수정: core 폴더 내 분리된 클래스 사용
+import '../services/auth_service.dart'; // 수정: 서비스 클래스 사용
 
 // =============================================================================
 //  신규 사용자 회원가입 화면 (Signup Screen)
@@ -23,6 +21,8 @@ class _SignupScreenState extends State<SignupScreen> {
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _countryController = TextEditingController(text: 'KR');
+
+  final AuthService _authService = AuthService(); // 서비스 연동
 
   bool isLoading = false;
 
@@ -49,50 +49,29 @@ class _SignupScreenState extends State<SignupScreen> {
 
     setState(() => isLoading = true);
 
-    final userId = _idController.text.trim();
-    final password = _pwController.text.trim();
-    final name = _nameController.text.trim();
-    final phone = _phoneController.text.trim();
-    final email = _emailController.text.trim();
-    final country = _countryController.text.trim();
+    final Map<String, dynamic> requestData = {
+      'user_id': _idController.text.trim(),
+      'password': _pwController.text.trim(),
+      'name': _nameController.text.trim(),
+      'phone_number': _phoneController.text.trim(),
+      'email': _emailController.text.trim(),
+      'country': _countryController.text.trim().isNotEmpty ? _countryController.text.trim() : 'KR', //선택항목 처리
+    };
 
-    try {
-      final url = Uri.parse(ApiConfig.signupUrl);
+    final result = await _authService.signup(requestData);
 
-      final Map<String, dynamic> requestData = {
-        'user_id': userId,
-        'password': password,
-        'name': name,
-        'phone_number': phone,
-        'email': email,
-        'country': country.isNotEmpty ? country : 'KR', //선택항목 처리
-      };
+    if (!mounted) return;
+    setState(() => isLoading = false);
 
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(requestData),
-      );
-
-      final responseData = jsonDecode(response.body);
-
-      if (response.statusCode == 201) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('✅ ${responseData['message']}')),
-        );
-        Navigator.pop(context);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ ${responseData['message']}')),
-        );
-      }
-    } catch (e) {
+    if (result['success']) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ 회원가입 요청 실패: $e')),
+        SnackBar(content: Text('✅ ${result['message']}')),
       );
-    } finally {
-      setState(() => isLoading = false);
+      Navigator.pop(context);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('❌ ${result['message']}')),
+      );
     }
   }
 

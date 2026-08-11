@@ -4,9 +4,9 @@ import 'package:http/http.dart' as http;
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'api_config.dart';
-import 'app_theme.dart';
-import 'disease_alert_dialog.dart';
+import '../core/api_config.dart';
+import '../core/app_theme.dart';
+import '../widgets/disease_alert_dialog.dart';
 
 // =============================================================================
 // [Screen 2] 선택 과일 전용 대시보드 그래프 화면

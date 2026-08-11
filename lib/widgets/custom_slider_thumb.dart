@@ -1,7 +1,7 @@
 // lib/custom_slider_thumb.dart
 import 'package:flutter/material.dart';
 import 'dart:math' as math; // 💡 [수정] 물결(Sine Wave)을 그리기 위한 수학 라이브러리 추가
-import 'app_theme.dart';
+import '../core/app_theme.dart';
 
 // =============================================================================
 // [1] 🌊 커스텀 트랙(막대): 시냇물이 흘러가는 애니메이션을 그리는 막대

@@ -1,6 +1,6 @@
 // lib/app_widgets.dart
 import 'package:flutter/material.dart';
-import 'app_theme.dart';
+import '../core/app_theme.dart';
 
 /// [공통 위젯 1] 메인 라운드 채우기 버튼
 class PrimaryButton extends StatelessWidget {
