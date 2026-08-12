@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
-import '../core/api_config.dart';
+
 
 /// [작물 데이터 서비스] 서버의 작물 코드와 로컬의 메타데이터를 병합 및 영구 저장합니다.
 class CropDataService {
