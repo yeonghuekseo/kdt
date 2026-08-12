@@ -41,9 +41,9 @@ class AppTheme {
       enabledBorder: const OutlineInputBorder(
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(20),
-          bottomLeft: Radius.circular(20),
+          bottomRight: Radius.circular(20),
           topRight: Radius.circular(4),
-          bottomRight: Radius.circular(4),
+          bottomLeft: Radius.circular(4),
         ),
        borderSide: BorderSide(color:AppColors.primary,width: 1.0), //기본상태테두리 녹색
       ),

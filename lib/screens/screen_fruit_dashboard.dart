@@ -34,7 +34,8 @@ class FruitDashboardScreen extends StatefulWidget {
 class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
   MqttServerClient? client;
   bool isConnected = false;
-  List<FlSpot> chartPoints = [];
+  List<FlSpot> tempSpots = [];
+  List<FlSpot> humiditySpots = [];  //온도와 습도 데이터를 각각 담을 리스트 분리
   int xCounter = 0;
 
   final List<Map<String, dynamic>> _alertLogs = [];
@@ -58,18 +59,23 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
         //  백엔드 응답 형식 {"status": "success", "data": [...]} 분석 및 예외 처리
         if (responseData['status'] == 'success' && responseData['data'] != null) {
           final List<dynamic> logs = responseData['data'];
-          List<FlSpot> loadedSpots = [];
+          List<FlSpot> loadedTemp = [];
+          List<FlSpot> loadedHumid = [];
 
 
           for (int i = 0; i < logs.length; i++) {
             //온도 데이터 필드명: 'temperature'
-            double yValue = (logs[i]['temperature'] ?? 0.0).toDouble();
-            loadedSpots.add(FlSpot(i.toDouble(), yValue));
+            double tValue = (logs[i]['temperature'] ?? 0.0).toDouble();
+            double hValue = (logs[i]['humidity'] ?? 0.0).toDouble();
+
+            loadedTemp.add(FlSpot(i.toDouble(), tValue));
+            loadedHumid.add(FlSpot(i.toDouble(), hValue));
           }
 
           setState(() {
-            chartPoints = loadedSpots;
-            xCounter = loadedSpots.length;
+            tempSpots = loadedTemp;
+            humiditySpots = loadedHumid;
+            xCounter = logs.length;
           });
         }
       }
@@ -130,14 +136,20 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
 
   //MQTT로 들어온 실시간 온습도 데이터를 차트에 즉시 추가하는 함수
   void _parseAndUpdateGraph(Map<String, dynamic> data) {
-    double value = (data['temperature'] ?? 0.0).toDouble();
+    double tValue = (data['temperature'] ?? 0.0).toDouble();
+    double hValue = (data['humidity'] ?? 0.0).toDouble();
+
     setState(() {
-      //(X: 시간순서, Y: 온도값)을 차트 데이터 배열에 추가
-      chartPoints.add(FlSpot(xCounter.toDouble(), value));
+      // 실시간 데이터도 두 개의 리스트에 각각 추가
+      tempSpots.add(FlSpot(xCounter.toDouble(), tValue));
+      humiditySpots.add(FlSpot(xCounter.toDouble(), hValue));
       xCounter++;
 
       //차트 그래프가 너무 빽빽해지지 않도록 최근 20개 점만 유지
-      if (chartPoints.length > 20) chartPoints.removeAt(0);
+      if (tempSpots.length > 20) {
+        tempSpots.removeAt(0);
+        humiditySpots.removeAt(0);
+      }
     });
   }
 
@@ -167,19 +179,22 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('${widget.selectedFruitIcon} ${widget.selectedFruitName} 대시보드'),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
-              children: [
-                Icon(Icons.circle, size: 12, color: isConnected ? Colors.green : Colors.red),
-                const SizedBox(width: 6),
-                Text(isConnected ? 'MQTT 연결됨' : '연결 끊김', style: const TextStyle(fontSize: 12)),
-              ],
-            ),
-          )
-        ],
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text('${widget.selectedFruitIcon} ${widget.selectedFruitName} 대시보드'),
+          ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Row(
+                children: [
+                  Icon(Icons.circle, size: 12, color: isConnected ? Colors.green : Colors.red),
+                  const SizedBox(width: 6),
+                  Text(isConnected ? 'MQTT 연결됨' : '연결 끊김', style: const TextStyle(fontSize: 12)),
+                ],
+              ),
+            )
+          ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -193,49 +208,123 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
                 padding: const EdgeInsets.all(16.0),
                 child: Row(
                   children: [
-                    Text(widget.selectedFruitIcon, style: const TextStyle(fontSize: 32)),
+                    Flexible(
+                      flex: 1,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(widget.selectedFruitIcon, style: const TextStyle(fontSize: 32)),
+                      ),
+                    ),
                     const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${widget.selectedFruitName} 실시간 환경 모니터링',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          '사용자: ${widget.currentUserName} (${widget.currentUserId})',
-                          style: const TextStyle(fontSize: 12, color: Colors.black54),
-                        ),
-                      ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              '${widget.selectedFruitName} 실시간 환경 모니터링',
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              '사용자: ${widget.currentUserName} (${widget.currentUserId})',
+                              style: const TextStyle(fontSize: 12, color: Colors.black54),
+                            ),
+                          ),
+                        ],
+                      ),
+
                     ),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 16),
-
-            const Text('📊 실시간 온습도 환경 분석 그래프', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
+            //그래프 범례 추가
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('📊 실시간 온습도 환경 분석', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Row(
+                  children: [
+                    const Icon(Icons.circle, size: 10, color: Colors.red),
+                    const SizedBox(width: 4),
+                    const Text('온도', style: TextStyle(fontSize: 12)),
+                    const SizedBox(width: 12),
+                    const Icon(Icons.circle, size: 10, color: Colors.blue),
+                    const SizedBox(width: 4),
+                    const Text('습도', style: TextStyle(fontSize: 12)),
+                  ],
+                )
+              ],
+            ),
+            const SizedBox(height: 12),
+            // 이중축을 적용한 LineChart 구성
             SizedBox(
-              height: 180,
-              child: chartPoints.isEmpty
+              height: 220,
+              child: tempSpots.isEmpty
                   ? const Center(child: CircularProgressIndicator())
                   : LineChart(
                 LineChartData(
-                  gridData: const FlGridData(show: true),
-                  titlesData: const FlTitlesData(
-                    rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  lineTouchData: const LineTouchData(enabled: false),
+
+                  minY: 0,    //온습도 모두 0에서 시작
+                  maxY: 100,  //최대 100으로 고정하여 안정적인 스케일 확보
+                  gridData: const FlGridData(show: true, drawVerticalLine: false),
+                  titlesData: FlTitlesData(
+                    //상단, 하단 축 타이틀은 숨김 (X축은 데이터 인덱스이므로 생략)
                     topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+
+                    // 왼쪽 Y축: 온도 (℃)
+                    leftTitles: AxisTitles(
+                      axisNameWidget: const Text('온도(℃)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.red)),
+                      axisNameSize: 20,
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 35,
+                        getTitlesWidget: (value, meta) {
+                          if (value % 20 != 0) return const SizedBox.shrink(); // 20 단위로만 표시
+                          return Text('${value.toInt()}', style: const TextStyle(fontSize: 11, color: Colors.red));
+                        },
+                      ),
+                  ),
+
+                    // 오른쪽 Y축: 습도 (%)
+                    rightTitles: AxisTitles(
+                      axisNameWidget: const Text('습도(%)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue)),
+                      axisNameSize: 20,
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 35,
+                        getTitlesWidget: (value, meta) {
+                          if (value % 20 != 0) return const SizedBox.shrink(); // 20 단위로만 표시
+                          return Text('${value.toInt()}', style: const TextStyle(fontSize: 11, color: Colors.blue));
+                        },
+                      ),
+                    ),
                   ),
                   borderData: FlBorderData(show: true),
                   lineBarsData: [
                     LineChartBarData(
-                      spots: chartPoints,
+                      spots: tempSpots,
                       isCurved: true,
-                      isStrokeCapRound: true,
-                      color: AppColors.primary,  //차트선 색상 테마 적용
+                      color: Colors.red,
                       barWidth: 3,
                       dotData: const FlDotData(show: true),
+                    ),
+                    // 두 번째 선: 습도
+                    LineChartBarData(
+                      spots: humiditySpots,
+                      isCurved: true,
+                      color: Colors.blue,
+                      barWidth: 3,
+                      dotData: const FlDotData(show: false),
                     ),
                   ],
                 ),
@@ -279,9 +368,11 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
                         ),
                       )
                           : const Icon(Icons.warning, color: Colors.red),
-                      title: Text(
-                        alert['message'] ?? '진단결과',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      title: FittedBox(
+                        child: Text(
+                          alert['message'] ?? '진단결과',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
                       ),
                       subtitle: Text('구역: ${alert['zone'] ?? '-'} | 상태: ${alert['health_status'] ?? '-'}'),
                     ),

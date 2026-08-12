@@ -1,9 +1,12 @@
 // lib/screen_selection.dart
 import 'package:flutter/material.dart';
+import '../services/crop_data_service.dart';
 import 'screen_fruit_dashboard.dart';
+import 'settings_screen.dart';
 import '../core/app_theme.dart';
-import '../services/robot_control_service.dart';
-import '../widgets/custom_slider_thumb.dart'; //시냇물 트랙과 조약돌 썸을 가져옵니다.
+import '../widgets/custom_slider_thumb.dart';
+import 'screen_robot_history.dart';
+import '../controllers/robot_controller.dart';
 
 class FruitSelectionScreen extends StatefulWidget {
   final String currentUserId;
@@ -16,55 +19,77 @@ class FruitSelectionScreen extends StatefulWidget {
   });
 
   @override
-  // 💡 [핵심 원리] 물결 애니메이션을 무한 반복시키기 위해 SingleTickerProviderStateMixin을 추가합니다.
   State<FruitSelectionScreen> createState() => _FruitSelectionScreenState();
 }
 
 class _FruitSelectionScreenState extends State<FruitSelectionScreen> with SingleTickerProviderStateMixin {
-  final RobotControlService _robotService = RobotControlService();
+  late RobotController _robotController;
 
-  // 로봇 제어 서비스에서 필요로 하는 데이터
-  String currentRobotZone = 'A1';
-  String currentRobotId = 'R001';
-
-  final List<Map<String, String>> fruits = [
-    {'name': '딸기', 'icon': '🍓', 'code': 'strawberry'},
-    {'name': '사과', 'icon': '🍎', 'code': 'apple'},
-    {'name': '포도', 'icon': '🍇', 'code': 'grape'},
-    {'name': '복숭아', 'icon': '🍑', 'code': 'peach'},
-  ];
-
-  double _sliderValue = 0.0;
-  late AnimationController _waveController;   // 물결이 계속해서 흐르도록 시간을 세어줄 애니메이션 타이머(컨트롤러)입니다.
+  List<Map<String, String>> fruits = [];
+  bool _isLoadingCrops = true;
+  late AnimationController _waveController;
 
   @override
   void initState() {
     super.initState();
-    // 2초 동안 0.0 -> 1.0으로 값이 변하는 타이머를 만들고, 영원히 반복(repeat)시킵니다.
-    // 이 타이머 덕분에 시냇물 파동이 멈추지 않고 흘러갑니다.
+    _loadCrops();
+    _robotController = RobotController(userId: widget.currentUserId, robotId: 'R001');
+
     _waveController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat();
   }
 
+  Future<void> _loadCrops() async {
+    final mergedData = await CropDataService.getMergedCropData(widget.currentUserId);
+    if (!mounted) return;
+    setState(() {
+      fruits = mergedData;
+      _isLoadingCrops = false;
+    });
+  }
+
   @override
   void dispose() {
-    // 화면이 꺼지면 메모리 낭비를 막기 위해 물결 타이머도 반드시 부숴줍니다.
     _waveController.dispose();
+    _robotController.dispose();
     super.dispose();
+  }
+
+  Future<void> _openSettings() async {
+    final updatedFruits = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SettingsScreen(currentFruits: fruits),
+      ),
+    );
+
+    if (updatedFruits != null && updatedFruits is List<Map<String, String>>) {
+      setState(() {
+        fruits = updatedFruits;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('농장 과일 선택 & 제어')),
+      appBar: AppBar(
+        title: const Text('농장 과일 선택 & 제어'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: _openSettings,
+            tooltip: '농장 설정',
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ----- 1. 상단 프로필 및 과일 선택 영역 (고정 크기) -----
             Card(
               color: Colors.white,
               elevation: 0,
@@ -82,165 +107,184 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> with Single
 
             const Text(' 모니터링할 과일을 선택하세요', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2, childAspectRatio: 1.1, crossAxisSpacing: 12, mainAxisSpacing: 12,
-              ),
-              itemCount: fruits.length,
-              itemBuilder: (context, index) {
-                final fruit = fruits[index];
-                return ElevatedButton(
-                  // ... 과일 버튼 설정 유지 ...
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.buttonBg, foregroundColor: AppColors.buttonText, elevation: 0,
-                    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.only(topLeft: Radius.circular(24), bottomRight: Radius.circular(24), topRight: Radius.circular(8), bottomLeft: Radius.circular(8),)),
-                  ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => FruitDashboardScreen(
-                          currentUserId: widget.currentUserId,
-                          currentUserName: widget.currentUserName,
-                          selectedFruitName: fruit['name']!,
-                          selectedFruitIcon: fruit['icon']!,
-                          selectedFruitCode: fruit['code']!,
-                        ),
+            if (_isLoadingCrops)
+              const Expanded(child: Center(child: CircularProgressIndicator(color: AppColors.primary)))
+            else
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2, childAspectRatio: 1.1, crossAxisSpacing: 12, mainAxisSpacing: 12,
+                ),
+                itemCount: fruits.length,
+                itemBuilder: (context, index) {
+                  final fruit = fruits[index];
+                  return ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.buttonBg, foregroundColor: AppColors.buttonText, elevation: 0,
+                        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.only(topLeft: Radius.circular(24), bottomRight: Radius.circular(24), topRight: Radius.circular(8), bottomLeft: Radius.circular(8),)),
                       ),
-                    );
-                  },
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(fruit['icon']!, style: const TextStyle(fontSize: 40)),
-                      const SizedBox(width: 8),
-                      Text(fruit['name']!, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 16), // 그리드와 하단 패널 사이의 여백
-
-            // ----- 2. 하단 로봇 제어 패널 -----
-            Expanded(
-              child: Card(
-                color: AppColors.robotPanelBg,
-                elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0), // 상하 여백 넉넉히
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // --- 패널 1층: 제목과 귀환 버튼 ---
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Row(
-                              children: [
-                                Icon(Icons.smart_toy_rounded, color: AppColors.primary),
-                                SizedBox(width:8),
-                                Text('로봇 제어 패널', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.buttonText)),
-                              ]
-                          ),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white, foregroundColor: AppColors.linkText, elevation: 0,
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                              side: const BorderSide(color: AppColors.linkText, width: 1.0),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => FruitDashboardScreen(
+                              currentUserId: widget.currentUserId,
+                              currentUserName: widget.currentUserName,
+                              selectedFruitName: fruit['name'] ?? '알 수 없음',
+                              selectedFruitIcon: fruit['icon'] ?? '🌱',
+                              selectedFruitCode: fruit['crop_id'] ?? fruit['code'] ?? 'unknown',
                             ),
-                            // 홈 귀환 시에는 선택사항인 zoneId를 생략(null)하여 전달하지 않음
-                            onPressed: () => _robotService.sendCommandToRobot(
-                                userId: widget.currentUserId,
-                                robotId: currentRobotId,
-                                command: 'return_home', // zoneId 생략
-                                onError: (errorMsg) {}
-                            ),
-                            icon: const Icon(Icons.home, size: 18),
-                            label: const Text('귀환', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                           ),
-                        ],
-                      ),
-
-                      // --- 패널 2층: 광활하게 펼쳐지는 두꺼운 시냇물 슬라이더 ---
-                      // 💡 또 한 번 Expanded를 써서, 제목과 구역 선택칸을 뺀 나머지 모든 공간을 슬라이더가 다 먹게 합니다!
-                      Expanded(
-                        // 💡 [핵심 원리] AnimatedBuilder: 물결 애니메이션 타이머가 틱(Tick)할 때마다 슬라이더를 실시간으로 다시 그려냅니다. (이게 없으면 시냇물이 멈춰있습니다)
-                        child: AnimatedBuilder(
-                            animation: _waveController,
-                            builder: (context, child) {
-                              return SliderTheme(
-                                data: SliderTheme.of(context).copyWith(
-                                  trackHeight: 60.0,
-                                  overlayShape: SliderComponentShape.noOverlay,
-                                  showValueIndicator: ShowValueIndicator.never,
-                                  trackShape: StreamFlowTrackShape(waveAnimation: _waveController), // 커스텀 시냇물 트랙을 끼워 넣고, 타이머(_waveController)를 건네줍니다.
-                                  thumbShape: StreamPebbleThumbShape(   //조약돌 썸은 유지하되 사이즈를 조금 더 키웁니다.
-                                    value: _sliderValue,
-                                    thumbRadius: 24.0, // 두꺼워진 트랙에 맞게 손잡이도 조금 더 키웠습니다.
-                                  ),
-                                ),
-                                child: Slider(
-                                  value: _sliderValue,
-                                  min: 0.0,
-                                  max: 1.0,
-                                  onChanged: (value) {
-                                    setState(() { _sliderValue = value; });
-                                  },
-                                  onChangeEnd: (value) async {// 스냅 애니메이션
-                                    double targetValue = value >= 0.5 ? 1.0 : 0.0;
-                                    int steps = 40;
-                                    double startValue = _sliderValue;
-                                    double diff = targetValue - startValue;
-                                    for(int i = 1; i <= steps; i++ ) {
-                                      await Future.delayed(const Duration(milliseconds: 12));
-                                      if(!mounted) return;
-                                      setState(() { _sliderValue = startValue + (diff * (i / steps)); });
-                                    }
-                                    setState(() { _sliderValue = targetValue; });
-                                    _robotService.sendSingleCommandForValue(
-                                        targetValue: targetValue,
-                                        userId: widget.currentUserId,
-                                        robotId: currentRobotId,
-                                        zoneId: currentRobotZone,
-                                        onError: (errorMsg) {}
-                                    );
-                                  },
-                                ),
-                              );
-                            }
-                        ),
-                      ),
-
-                      // --- 패널 지하 1층: 구역(Zone) 선택 영역 ---
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16), // 둥근 흰색 박스로 감싸서 디자인 완성도 업!
-                        ),
+                        );
+                      },
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center, // 텍스트를 중앙 정렬합니다.
-                          children: [ // 상태를 나타내는 초록색 불빛(점)
-                            const Icon(Icons.circle, color: Colors.green, size: 16),
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(fruit['icon'] ?? '🌱', style: const TextStyle(fontSize: 40)),
                             const SizedBox(width: 8),
-                            const Text('현재 위치: ', style: TextStyle(fontSize: 14, color: AppColors.inputLabel, fontWeight: FontWeight.bold)),
-                            const SizedBox(width: 4),
-                            // 텍스트 형태로만 현재 구역(상태)을 표시합니다.
-                            Text(
-                              currentRobotZone.toUpperCase(),  //소문자를 대문자로 깔끔하게 변함
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primary),
-                            )
+                            Text(fruit['name'] ?? '알 수 없음', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      )
+                  );
+                },
+              ),
+            const SizedBox(height: 16),
+
+            Expanded(
+              child: ListenableBuilder(
+                  listenable: _robotController,
+                  builder: (context, child) {
+                    return Card(
+                      color: AppColors.robotPanelBg,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Row(
+                                    children: [
+                                      Icon(Icons.smart_toy_rounded, color: AppColors.primary),
+                                      SizedBox(width:8),
+                                      Text('로봇 제어 패널', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.buttonText)),
+                                    ]
+                                ),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.white,
+                                        foregroundColor: AppColors.primary,
+                                        elevation: 0,
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                        side: const BorderSide(color: AppColors.primary, width: 1.0),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                      ),
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => RobotHistoryScreen(
+                                              currentUserId: widget.currentUserId,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      icon: const Icon(Icons.history, size: 18),
+                                      label: const Text('기록', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                    ),
+                                    const SizedBox(width: 8),
+
+                                    ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.white, foregroundColor: AppColors.linkText, elevation: 0,
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                        side: const BorderSide(color: AppColors.linkText, width: 1.0),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                      ),
+                                      onPressed: _robotController.isReturningHome ? null : _robotController.sendReturnCommand,
+                                      icon: _robotController.isReturningHome
+                                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.linkText))
+                                          : const Icon(Icons.home, size: 18),
+                                      label: Text(_robotController.isReturningHome ? '복귀 중...' : '귀환', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+
+                            Expanded(
+                              child: AnimatedBuilder(
+                                  animation: _waveController,
+                                  builder: (context, child) {
+                                    return SliderTheme(
+                                      data: SliderTheme.of(context).copyWith(
+                                        trackHeight: 60.0,
+                                        overlayShape: SliderComponentShape.noOverlay,
+                                        showValueIndicator: ShowValueIndicator.never,
+                                        trackShape: StreamFlowTrackShape(waveAnimation: _waveController),
+                                        thumbShape: StreamPebbleThumbShape(
+                                          value: _robotController.sliderValue,
+                                          thumbRadius: 24.0,
+                                        ),
+                                      ),
+                                      child: Slider(
+                                        value: _robotController.sliderValue,
+                                        min: 0.0,
+                                        max: 1.0,
+                                        onChanged: (value) => _robotController.updateSliderDragging(value),
+                                        onChangeEnd: (value) async {
+                                          double targetValue = value >= 0.5 ? 1.0 : 0.0;
+                                          int steps = 40;
+                                          double startValue = _robotController.sliderValue;
+                                          double diff = targetValue - startValue;
+                                          for(int i = 1; i <= steps; i++ ) {
+                                            await Future.delayed(const Duration(milliseconds: 12));
+                                            if(!mounted) return;
+                                            _robotController.updateSliderDragging(startValue + (diff * (i / steps)));
+                                          }
+                                          _robotController.updateSliderEnd(targetValue);
+                                        },
+                                      ),
+                                    );
+                                  }
+                              ),
+                            ),
+
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.circle, color: Colors.green, size: 16),
+                                  const SizedBox(width: 8),
+                                  const Text('현재 위치: ', style: TextStyle(fontSize: 14, color: AppColors.inputLabel, fontWeight: FontWeight.bold)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _robotController.currentZone.toUpperCase(),
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primary),
+                                  )
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
+                    );
+                  }
               ),
             ),
           ],
