@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../core/app_theme.dart';
-import '../widgets/disease_alert_dialog.dart';
 import '../controllers/controller_fruit_dashboard.dart';
 
 class FruitDashboardScreen extends StatefulWidget {
