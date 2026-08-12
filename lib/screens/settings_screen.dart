@@ -1,7 +1,7 @@
 // lib/screens/settings_screen.dart
 import 'package:flutter/material.dart';
 import '../core/app_theme.dart';
-import 'crop_edit_screen.dart';
+import 'screen_crop_edit.dart';
 
 class SettingsScreen extends StatefulWidget {
   final List<Map<String, String>> currentFruits;

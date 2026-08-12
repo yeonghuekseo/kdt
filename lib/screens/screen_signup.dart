@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../widgets/app_widgets.dart'; // 수정: widgets 폴더
 import '../core/app_validators.dart'; // 수정: core 폴더 내 분리된 클래스 사용
-import '../services/auth_service.dart'; // 수정: 서비스 클래스 사용
+import '../services/service_auth.dart'; // 수정: 서비스 클래스 사용
 
 // =============================================================================
 //  신규 사용자 회원가입 화면 (Signup Screen)

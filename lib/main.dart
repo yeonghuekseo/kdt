@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/login_screen.dart';
+import 'screens/screen_login.dart';
 import 'core/app_theme.dart';
 
 // [앱 시작점] 앱의 최상위 위젯. 공통 테마를 주입하고 첫 화면을 지정합니다.

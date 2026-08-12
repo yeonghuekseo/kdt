@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'signup_screen.dart';
+import 'screen_signup.dart';
 import 'screen_selection.dart';
 import '../widgets/app_widgets.dart'; // 공통 버튼 & 입력창 컴포넌트 import (경로수정)
-import '../services/auth_service.dart'; // AuthService 적용
+import '../services/service_auth.dart'; // AuthService 적용
 
 // =============================================================================
 // [2] 사용자 로그인 화면 (Login Screen)
