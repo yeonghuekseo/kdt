@@ -18,6 +18,10 @@ class AppColors {
   static const Color robotPanelBg = Color(0xFFE9F0EA);  // 제어 패널 배경: 옅은 이끼색
   static const Color sliderThumb = Color(0xFFE07A5F);   // 슬라이더 손잡이: 산딸기 색상 (따뜻한 오렌지)
   static const Color sliderActive = Color(0xFF7CA982);  // 슬라이더 동작 상태: 활기찬 녹색
+
+  // 차트용 테마 색상 (테라코타 오렌지 & 파스텔 블루)
+  static const Color chartTemp = Color(0xFFE07A5F);
+  static const Color chartHumid = Color(0xFF4A90E2);
 }
 
 /// [공통 디자인 테마]
