@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../core/app_theme.dart';
 import '../controllers/controller_fruit_dashboard.dart';
+import 'screen_disease_alert_history.dart';
 
 class FruitDashboardScreen extends StatefulWidget {
   final String currentUserId;
@@ -40,6 +41,16 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
   void dispose() {
     _dashboardController.dispose();
     super.dispose();
+  }
+
+  // 🌟 팝업 대신 전체 화면으로 이동하는 네비게이션 함수
+  void _goToAlertHistoryScreen(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ScreenDiseaseAlertHistory(currentUserId: widget.currentUserId),
+      ),
+    );
   }
 
   @override
@@ -112,6 +123,27 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
                           ),
                         ],
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    // 🌟 상단 칸 우측 끝에 배치된 경고 내역 화면 이동 버튼 (실시간 건수 표시)
+                    ListenableBuilder(
+                      listenable: _dashboardController,
+                      builder: (context, _) {
+                        final int alertCount = _dashboardController.alertLogs.length;
+                        return ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: Colors.red.shade700,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            side: BorderSide(color: Colors.red.shade300, width: 1.0),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          ),
+                          onPressed: () => _goToAlertHistoryScreen(context),
+                          icon: const Icon(Icons.warning_amber_rounded, size: 18),
+                          label: Text('$alertCount건', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        );
+                      },
                     ),
                   ],
                 ),
