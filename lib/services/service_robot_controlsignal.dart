@@ -1,24 +1,18 @@
 // lib/service_robot_controlsignal.dart
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import '../core/api_config.dart';
+import 'service_api.dart';
 
-/// 로봇 제어와 관련된 비즈니스 로직 및 API 통신을 전담하는 서비스 클래스
 class RobotControlService {
-  // 중복 신호 방지를 위한 이전 전송 명령 상태 기록 변수
   String _lastSentCommand = 'stop';
 
-  // [네트워크 API 통신함수]
   Future<void> sendCommandToRobot({
     required String userId,
     required String robotId,
     required String command,
-    String? zoneId, // 선택 사항
+    String? zoneId,
     required Function(String) onError
   }) async {
-    try {
-      final url = Uri.parse(ApiConfig.robotCommandUrl);
-
+      final url = ApiConfig.robotCommandUrl;
       final Map<String, dynamic> requestBody = {
         'user_id': userId,
         'robot_id': robotId,
@@ -29,13 +23,10 @@ class RobotControlService {
         requestBody['zone_id'] = zoneId;
       }
 
-      await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(requestBody),
-      );
-    } catch (e) {
-      onError(e.toString());
+      //ApiService 활용 (에러 처리는 내부에서 진행되므로 실패 시 null 반환)
+      final response = await ApiService.post(url, requestBody);
+      if (response == null) {
+        onError('로봇 명령 전송 실패');
     }
   }
 

@@ -1,11 +1,11 @@
 // lib/controllers/fruit_dashboard_controller.dart
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../core/api_config.dart';
+import '../services/service_api.dart';
 
 class FruitDashboardController extends ChangeNotifier {
   final String userId;
@@ -30,34 +30,28 @@ class FruitDashboardController extends ChangeNotifier {
   }
 
   Future<void> loadInitialData() async {
-    try {
-      final url = Uri.parse(ApiConfig.envLogsUrl(userId));
-      final response = await http.get(url);
+      final url = ApiConfig.envLogsUrl(userId);
+      final responseData = await ApiService.get(url);
 
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> responseData = jsonDecode(response.body);
-        if (responseData['status'] == 'success' && responseData['data'] != null) {
-          final List<dynamic> logs = responseData['data'];
-          List<FlSpot> loadedTemp = [];
-          List<FlSpot> loadedHumid = [];
+      if (responseData != null &&  responseData['status'] == 'success' && responseData['data'] != null) {
+        final List<dynamic> logs = responseData['data'];
+        List<FlSpot> loadedTemp = [];
+        List<FlSpot> loadedHumid = [];
 
-          for (int i = 0; i < logs.length; i++) {
-            double tValue = (logs[i]['temperature'] ?? 0.0).toDouble();
-            double hValue = (logs[i]['humidity'] ?? 0.0).toDouble();
-            loadedTemp.add(FlSpot(i.toDouble(), tValue));
-            loadedHumid.add(FlSpot(i.toDouble(), hValue));
-          }
-
-          tempSpots = loadedTemp;
-          humiditySpots = loadedHumid;
-          xCounter = logs.length;
-          notifyListeners();
+        for (int i = 0; i < logs.length; i++) {
+          double tValue = (logs[i]['temperature'] ?? 0.0).toDouble();
+          double hValue = (logs[i]['humidity'] ?? 0.0).toDouble();
+          loadedTemp.add(FlSpot(i.toDouble(), tValue));
+          loadedHumid.add(FlSpot(i.toDouble(), hValue));
         }
+
+        tempSpots = loadedTemp;
+        humiditySpots = loadedHumid;
+        xCounter = logs.length;
+        notifyListeners();
       }
-    } catch (e) {
-      debugPrint('❌ 환경 로그 데이터 로드 실패: $e');
     }
-  }
+
 
   Future<void> initMqtt() async {
     final String clientId = 'flutter_${userId}_${DateTime.now().millisecondsSinceEpoch}';

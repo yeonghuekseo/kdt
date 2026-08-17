@@ -1,7 +1,7 @@
 // lib/controllers/controller_disease_alert_history.dart
 import 'package:flutter/material.dart';
 import '../core/api_config.dart';
-import '../services/api_service.dart'; // 🌟 ApiService 임포트
+import '../services/service_api.dart'; // 🌟 ApiService 임포트
 
 class DiseaseAlertHistoryController extends ChangeNotifier {
   List<dynamic> diseaseLogs = [];

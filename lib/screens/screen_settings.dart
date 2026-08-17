@@ -3,16 +3,17 @@ import 'package:flutter/material.dart';
 import '../core/app_theme.dart';
 import '../widgets/app_widgets.dart';
 import 'screen_crop_edit.dart';
+import '../models/app_models.dart';
 
 class SettingsScreen extends StatefulWidget {
-  final List<Map<String, String>> currentFruits;
+  final List<CropModel> currentFruits;
   const SettingsScreen({super.key, required this.currentFruits});
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  late List<Map<String, String>> _currentFruits;
+  late List<CropModel> _currentFruits;
 
   @override
   void initState() {
@@ -28,7 +29,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (didPop) return;
         Navigator.pop(context, _currentFruits);
       },
-      // 🌟 [모듈화 적용] Scaffold 대체
       child: EcoGlassScaffold(
         title: const Text('농장 설정'),
         leading: IconButton(
@@ -37,7 +37,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         builder: (context, topPadding, bottomPadding) {
           return ListView(
-            // 🌟 모듈에서 넘겨준 자동 계산 패딩 사용
             padding: EdgeInsets.only(top: topPadding, bottom: bottomPadding),
             children: [
               const Padding(
@@ -55,7 +54,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
                 onTap: () async {
                   final updatedFruits = await Navigator.push(context, MaterialPageRoute(builder: (context) => CropEditScreen(currentFruits: _currentFruits)));
-                  if (updatedFruits != null && updatedFruits is List<Map<String, String>>) {
+                  if (updatedFruits != null && updatedFruits is List<CropModel>) {
                     setState(() => _currentFruits = updatedFruits);
                   }
                 },

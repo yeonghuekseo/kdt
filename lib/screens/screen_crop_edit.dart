@@ -3,26 +3,29 @@ import 'package:flutter/material.dart';
 import '../core/app_theme.dart';
 import '../widgets/app_widgets.dart';
 import '../services/service_crop_data.dart';
+import '../models/app_models.dart';
 
 class CropEditScreen extends StatefulWidget {
-  final List<Map<String, String>> currentFruits;
+  final List<CropModel> currentFruits;
   const CropEditScreen({super.key, required this.currentFruits});
   @override
   State<CropEditScreen> createState() => _CropEditScreenState();
 }
 
 class _CropEditScreenState extends State<CropEditScreen> {
-  late List<Map<String, String>> _editableFruits;
+  late List<CropModel> _editableFruits;
 
   @override
   void initState() {
     super.initState();
-    _editableFruits = List.from(widget.currentFruits.map((fruit) => Map<String, String>.from(fruit)));
+    _editableFruits = widget.currentFruits.map((fruit) =>
+        CropModel(cropId: fruit.cropId, name: fruit.name, icon: fruit.icon)
+    ).toList();
   }
 
   void _editFruitDialog(int index) {
-    final nameController = TextEditingController(text: _editableFruits[index]['name'] ?? '');
-    final iconController = TextEditingController(text: _editableFruits[index]['icon'] ?? '');
+    final nameController = TextEditingController(text: _editableFruits[index].name);
+    final iconController = TextEditingController(text: _editableFruits[index].icon);
 
     showDialog(
       context: context,
@@ -43,8 +46,8 @@ class _CropEditScreenState extends State<CropEditScreen> {
             ElevatedButton(
               onPressed: () {
                 setState(() {
-                  _editableFruits[index]['name'] = nameController.text.trim();
-                  _editableFruits[index]['icon'] = iconController.text.trim();
+                  _editableFruits[index].name = nameController.text.trim();
+                  _editableFruits[index].icon = iconController.text.trim();
                 });
                 Navigator.pop(context);
               },
@@ -83,9 +86,9 @@ class _CropEditScreenState extends State<CropEditScreen> {
                       elevation: 0, margin: const EdgeInsets.only(bottom: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
                       child: ListTile(
-                        leading: SizedBox(width: 50, child: FittedBox(fit: BoxFit.scaleDown, child: Text(fruit['icon'] ?? '🌱', style: const TextStyle(fontSize: 32)))),
-                        title: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(fruit['name'] ?? '알 수 없는 작물', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
-                        subtitle: Text('작물 ID: ${fruit['crop_id'] ?? fruit['code'] ?? '없음'}'),
+                        leading: SizedBox(width: 50, child: FittedBox(fit: BoxFit.scaleDown, child: Text(fruit.icon, style: const TextStyle(fontSize: 32)))),
+                        title: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(fruit.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
+                        subtitle: Text('작물 ID: ${fruit.cropId}'),
                         trailing: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), shape: BoxShape.circle),

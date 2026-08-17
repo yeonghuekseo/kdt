@@ -1,9 +1,12 @@
 // lib/screens/screen_login.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'screen_signup.dart';
 import 'screen_selection.dart';
 import '../widgets/app_widgets.dart'; // EcoGlassScaffold 포함
 import '../services/service_auth.dart';
+import '../models/app_models.dart';
+import '../providers/auth_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -40,16 +43,13 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => isLoading = false);
 
     if (result['success']) {
+      final user = UserModel.fromJson(result['data']);
+      context.read<AuthProvider>().setUser(user);
+
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('✅ ${result['message']}')));
-      final userData = result['data'];
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (context) => FruitSelectionScreen(
-            currentUserId: userData['user_id'],
-            currentUserName: userData['name'],
-          ),
-        ),
+        MaterialPageRoute(builder: (context) => const FruitSelectionScreen()),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ ${result['message']}')));
@@ -58,10 +58,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 🌟 [모듈화 적용] Scaffold, extendBodyBehindAppBar, GlassAppBar 설정이 단 2줄로 압축됨!
     return EcoGlassScaffold(
       title: const Text('🍓 Ddalgi Farm 로그인'),
-      // 🌟 넘겨받은 topPadding, bottomPadding을 그대로 사용
       builder: (context, topPadding, bottomPadding) {
         return LayoutBuilder(
           builder: (context, constraints) {

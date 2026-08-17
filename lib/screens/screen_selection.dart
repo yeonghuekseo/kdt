@@ -1,6 +1,9 @@
 // lib/screens/screen_selection.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/service_crop_data.dart';
+import '../models/app_models.dart';
+import '../providers/auth_provider.dart';
 import 'screen_fruit_dashboard.dart';
 import 'screen_settings.dart';
 import '../core/app_theme.dart';
@@ -9,11 +12,9 @@ import '../widgets/app_widgets.dart';
 import 'screen_robot_history.dart';
 import '../controllers/controller_robot.dart';
 
-class FruitSelectionScreen extends StatefulWidget {
-  final String currentUserId;
-  final String currentUserName;
 
-  const FruitSelectionScreen({super.key, required this.currentUserId, required this.currentUserName});
+class FruitSelectionScreen extends StatefulWidget {
+  const FruitSelectionScreen({super.key});
 
   @override
   State<FruitSelectionScreen> createState() => _FruitSelectionScreenState();
@@ -21,20 +22,24 @@ class FruitSelectionScreen extends StatefulWidget {
 
 class _FruitSelectionScreenState extends State<FruitSelectionScreen> with SingleTickerProviderStateMixin {
   late RobotController _robotController;
-  List<Map<String, String>> fruits = [];
+  List<CropModel> fruits = [];
   bool _isLoadingCrops = true;
   late AnimationController _waveController;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_){
     _loadCrops();
-    _robotController = RobotController(userId: widget.currentUserId, robotId: 'R001');
+    final userId = context.read<AuthProvider>().currentUser?.userId ?? '';
+    _robotController = RobotController(userId: userId, robotId: 'R001');
+    });
     _waveController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
   }
 
   Future<void> _loadCrops() async {
-    final mergedData = await CropDataService.getMergedCropData(widget.currentUserId);
+    final userId = context.read<AuthProvider>().currentUser?.userId ?? '';
+    final mergedData = await CropDataService.getMergedCropData(userId);
     if (!mounted) return;
     setState(() {
       fruits = mergedData;
@@ -51,20 +56,23 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> with Single
 
   Future<void> _openSettings() async {
     final updatedFruits = await Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen(currentFruits: fruits)));
-    if (updatedFruits != null && updatedFruits is List<Map<String, String>>) {
+    if (updatedFruits != null && updatedFruits is List<CropModel>) {
       setState(() => fruits = updatedFruits);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = context.watch<AuthProvider>().currentUser;
+    final userId = user?.userId ?? '';
+    final userName = user?.name ?? '사용자';
+
     return EcoGlassScaffold(
       title: const Text('농장 과일 선택 & 제어'),
       actions: [
         IconButton(icon: const Icon(Icons.settings_rounded), onPressed: _openSettings),
       ],
       builder: (context, topPadding, bottomPadding) {
-        // 🌟 [오버플로우 해결 1] 화면 전체를 SingleChildScrollView로 감싸 스크롤 가능하게 만듦
         return SingleChildScrollView(
           padding: EdgeInsets.only(top: topPadding, left: 16, right: 16, bottom: bottomPadding),
           child: Column(
@@ -75,7 +83,7 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> with Single
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: Colors.grey.shade200)),
                 child: Padding(
                   padding: const EdgeInsets.all(12.0),
-                  child: Text('반갑습니다, ${widget.currentUserName}님! 🌱', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 16)),
+                  child: Text('반갑습니다, $userName님! 🌱', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 16)),
                 ),
               ),
               const SizedBox(height: 20),
@@ -83,7 +91,6 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> with Single
               const SizedBox(height: 12),
 
               if (_isLoadingCrops)
-              // 🌟 [수정] Expanded 대신 고정 높이 사용
                 const SizedBox(height: 150, child: Center(child: CircularProgressIndicator(color: AppColors.primary)))
               else
                 GridView.builder(
@@ -100,7 +107,13 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> with Single
                         ),
                         onPressed: () {
                           Navigator.push(context, MaterialPageRoute(
-                              builder: (context) => FruitDashboardScreen(currentUserId: widget.currentUserId, currentUserName: widget.currentUserName, selectedFruitName: fruit['name'] ?? '알 수 없음', selectedFruitIcon: fruit['icon'] ?? '🌱', selectedFruitCode: fruit['crop_id'] ?? fruit['code'] ?? 'unknown')
+                              builder: (context) => FruitDashboardScreen(
+                                currentUserId: userId,
+                                currentUserName: userName,
+                                  selectedFruitName: fruit.name,
+                                  selectedFruitIcon: fruit.icon,
+                                  selectedFruitCode: fruit.cropId,
+                              )
                           ));
                         },
                         child: FittedBox(
@@ -108,9 +121,9 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> with Single
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text(fruit['icon'] ?? '🌱', style: const TextStyle(fontSize: 40)),
+                              Text(fruit.icon, style: const TextStyle(fontSize: 40)),
                               const SizedBox(width: 8),
-                              Text(fruit['name'] ?? '알 수 없음', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                              Text(fruit.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                             ],
                           ),
                         )
@@ -147,7 +160,6 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> with Single
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                // 🌟 [오버플로우 해결 4] 버튼 2개도 가로 공간이 부족하면 자연스럽게 축소됨
                                 FittedBox(
                                   fit: BoxFit.scaleDown,
                                   alignment: Alignment.centerRight,
@@ -156,7 +168,7 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> with Single
                                     children: [
                                       ElevatedButton.icon(
                                         style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: AppColors.primary, elevation: 0, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), side: const BorderSide(color: AppColors.primary, width: 1.0), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-                                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => RobotHistoryScreen(currentUserId: widget.currentUserId))),
+                                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => RobotHistoryScreen(currentUserId: userId))),
                                         icon: const Icon(Icons.history_rounded, size: 18),
                                         label: const Text('기록', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                                       ),
