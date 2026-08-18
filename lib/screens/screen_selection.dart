@@ -37,6 +37,7 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> with Ticker
     super.initState();
     _loadCrops();
     _waveController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
+    _snapController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
     _snapController.addListener(() {
       if (mounted) {
         context.read<RobotProvider>().updateSliderDragging(_snapController.value);
