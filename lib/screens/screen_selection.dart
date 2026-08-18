@@ -4,13 +4,14 @@ import 'package:provider/provider.dart';
 import '../services/service_crop_data.dart';
 import '../models/app_models.dart';
 import '../providers/auth_provider.dart';
+import '../providers/robot_provider.dart';
 import 'screen_fruit_dashboard.dart';
 import 'screen_settings.dart';
 import '../core/app_theme.dart';
 import '../widgets/custom_slider_thumb.dart';
 import '../widgets/app_widgets.dart';
 import 'screen_robot_history.dart';
-import '../controllers/controller_robot.dart';
+
 
 
 class FruitSelectionScreen extends StatefulWidget {
@@ -21,7 +22,6 @@ class FruitSelectionScreen extends StatefulWidget {
 }
 
 class _FruitSelectionScreenState extends State<FruitSelectionScreen> with SingleTickerProviderStateMixin {
-  late RobotController _robotController;
   List<CropModel> fruits = [];
   bool _isLoadingCrops = true;
   late AnimationController _waveController;
@@ -29,11 +29,7 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> with Single
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_){
     _loadCrops();
-    final userId = context.read<AuthProvider>().currentUser?.userId ?? '';
-    _robotController = RobotController(userId: userId, robotId: 'R001');
-    });
     _waveController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
   }
 
@@ -50,7 +46,6 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> with Single
   @override
   void dispose() {
     _waveController.dispose();
-    _robotController.dispose();
     super.dispose();
   }
 
@@ -132,10 +127,8 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> with Single
                 ),
               const SizedBox(height: 16),
 
-              // 🌟 [오버플로우 해결 2] 하단 패널을 Expanded에서 해제하여 화면 스크롤 시 자연스럽게 아래에 위치하도록 함
-              ListenableBuilder(
-                  listenable: _robotController,
-                  builder: (context, child) {
+              Consumer<RobotProvider>(
+                  builder: (context,robotProvider, child) {
                     return Card(
                       color: AppColors.robotPanelBg, elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -147,7 +140,6 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> with Single
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                // 🌟 [오버플로우 해결 3] 가로 폭이 좁을 때 텍스트가 줄어들도록 Flexible + FittedBox 적용
                                 const Flexible(
                                   child: FittedBox(
                                     fit: BoxFit.scaleDown,
@@ -175,11 +167,13 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> with Single
                                       const SizedBox(width: 8),
                                       ElevatedButton.icon(
                                         style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: AppColors.linkText, elevation: 0, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), side: const BorderSide(color: AppColors.linkText, width: 1.0), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-                                        onPressed: _robotController.isReturningHome ? null : _robotController.sendReturnCommand,
-                                        icon: _robotController.isReturningHome
+                                        onPressed: robotProvider.isReturningHome
+                                            ? null
+                                            : () => context.read<RobotProvider>().sendReturnCommand(userId, 'R001'),
+                                        icon: robotProvider.isReturningHome
                                             ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.linkText))
                                             : const Icon(Icons.home_rounded, size: 18),
-                                        label: Text(_robotController.isReturningHome ? '복귀 중...' : '귀환', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                        label: Text(robotProvider.isReturningHome ? '복귀 중...' : '귀환', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                                       ),
                                     ],
                                   ),
@@ -199,20 +193,20 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> with Single
                                       data: SliderTheme.of(context).copyWith(
                                         trackHeight: 60.0, overlayShape: SliderComponentShape.noOverlay, showValueIndicator: ShowValueIndicator.never,
                                         trackShape: StreamFlowTrackShape(waveAnimation: _waveController),
-                                        thumbShape: StreamPebbleThumbShape(value: _robotController.sliderValue, thumbRadius: 24.0),
+                                        thumbShape: StreamPebbleThumbShape(value: robotProvider.sliderValue, thumbRadius: 24.0),
                                       ),
                                       child: Slider(
-                                        value: _robotController.sliderValue, min: 0.0, max: 1.0,
-                                        onChanged: (value) => _robotController.updateSliderDragging(value),
+                                        value: robotProvider.sliderValue, min: 0.0, max: 1.0,
+                                        onChanged: (value) => context.read<RobotProvider>().updateSliderDragging(value),
                                         onChangeEnd: (value) async {
                                           double targetValue = value >= 0.5 ? 1.0 : 0.0;
-                                          int steps = 40; double startValue = _robotController.sliderValue; double diff = targetValue - startValue;
+                                          int steps = 40; double startValue = robotProvider.sliderValue; double diff = targetValue - startValue;
                                           for(int i = 1; i <= steps; i++ ) {
                                             await Future.delayed(const Duration(milliseconds: 12));
                                             if(!mounted) return;
-                                            _robotController.updateSliderDragging(startValue + (diff * (i / steps)));
+                                            context.read<RobotProvider>().updateSliderDragging(startValue + (diff * (i / steps)));
                                           }
-                                          _robotController.updateSliderEnd(targetValue);
+                                          if(mounted) context.read<RobotProvider>().updateSliderEnd(targetValue, userId, 'R001');
                                         },
                                       ),
                                     );
@@ -232,7 +226,7 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> with Single
                                   const SizedBox(width: 8),
                                   const Text('현재 위치: ', style: TextStyle(fontSize: 14, color: AppColors.inputLabel, fontWeight: FontWeight.bold)),
                                   const SizedBox(width: 4),
-                                  Text(_robotController.currentZone.toUpperCase(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                                  Text(robotProvider.currentZone.toUpperCase(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primary)),
                                 ],
                               ),
                             ),

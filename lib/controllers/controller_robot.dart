@@ -1,6 +1,6 @@
 // lib/controllers/controller_robot.dart
 import 'package:flutter/material.dart';
-import '../services/service_robot_controlsignal.dart';
+import '../services/service_robot_signal.dart';
 
 class RobotController extends ChangeNotifier {
   final String userId;
