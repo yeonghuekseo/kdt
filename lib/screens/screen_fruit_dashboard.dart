@@ -1,9 +1,11 @@
 // lib/screens/screen_fruit_dashboard.dart
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:provider/provider.dart';
 import '../core/app_theme.dart';
 import '../widgets/app_widgets.dart';
 import '../controllers/controller_fruit_dashboard.dart';
+import '../providers/robot_provider.dart';
 import 'screen_disease_alert_history.dart';
 
 class FruitDashboardScreen extends StatefulWidget {
@@ -25,7 +27,16 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _dashboardController = FruitDashboardController(userId: widget.currentUserId, fruitName: widget.selectedFruitName);
+    _dashboardController = FruitDashboardController(
+        userId: widget.currentUserId,
+        fruitCode: widget.selectedFruitCode,
+        fruitName: widget.selectedFruitName,
+        onZoneUpdated: (newZone) {
+          if (mounted) {
+            context.read<RobotProvider>().updateZone(newZone);
+          }
+        }
+    );
   }
 
   @override
@@ -40,7 +51,6 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 🌟 [모듈화 적용] 엄청나게 깔끔해진 대시보드 뼈대
     return EcoGlassScaffold(
       title: FittedBox(
         fit: BoxFit.scaleDown,
@@ -66,7 +76,6 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
       ],
       builder: (context, topPadding, bottomPadding) {
         return Padding(
-          // 🌟 모듈에서 넘겨준 자동 계산 패딩 사용
           padding: EdgeInsets.only(top: topPadding, left: 16, right: 16, bottom: bottomPadding),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -118,10 +127,9 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
                   const Text('📊 실시간 온습도 환경 분석', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   Row(
                     children: const [
-                      Icon(Icons.circle, size: 10, color: AppColors.chartTemp),
-                      SizedBox(width: 4), Text('온도', style: TextStyle(fontSize: 12)), SizedBox(width: 12),
-                      Icon(Icons.circle, size: 10, color: AppColors.chartHumid),
-                      SizedBox(width: 4), Text('습도', style: TextStyle(fontSize: 12)),
+                      Icon(Icons.square, size: 12, color: Colors.green), SizedBox(width: 4), Text('미숙', style: TextStyle(fontSize: 12)), SizedBox(width: 8),
+                      Icon(Icons.square, size: 12, color: Colors.redAccent), SizedBox(width: 4), Text('적숙', style: TextStyle(fontSize: 12)), SizedBox(width: 8),
+                      Icon(Icons.square, size: 12, color: Colors.purple), SizedBox(width: 4), Text('과숙', style: TextStyle(fontSize: 12)),
                     ],
                   )
                 ],
@@ -132,30 +140,55 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
                 child: ListenableBuilder(
                   listenable: _dashboardController,
                   builder: (context, _) {
-                    if (_dashboardController.tempSpots.isEmpty) return const Center(child: CircularProgressIndicator());
-                    return LineChart(
-                      LineChartData(
-                        lineTouchData: const LineTouchData(enabled: false), minY: 0, maxY: 100,
+                    final ripenessList = _dashboardController.ripenessList;
+                    if (ripenessList.isEmpty) return const Center(child: Text('집계된 데이터가 없습니다.', style: TextStyle(color: Colors.grey)));
+
+                    return BarChart(
+                      BarChartData(
+                        alignment: BarChartAlignment.spaceAround,
+                        maxY: 80,
+                        barTouchData: BarTouchData(enabled: false),
                         gridData: const FlGridData(show: true, drawVerticalLine: false),
                         titlesData: FlTitlesData(
                           topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          bottomTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                           leftTitles: AxisTitles(
-                            axisNameWidget: const Text('온도(℃)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.chartTemp)),
+                            axisNameWidget: const Text('수량(개)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                             axisNameSize: 20,
-                            sideTitles: SideTitles(showTitles: true, reservedSize: 35, getTitlesWidget: (v, m) => v % 20 != 0 ? const SizedBox.shrink() : Text('${v.toInt()}', style: const TextStyle(fontSize: 11, color: AppColors.chartTemp))),
+                            sideTitles: SideTitles(
+                              showTitles: true, reservedSize: 30,
+                              getTitlesWidget: (v, m) => v % 20 != 0 ? const SizedBox.shrink() : Text('${v.toInt()}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                            ),
                           ),
-                          rightTitles: AxisTitles(
-                            axisNameWidget: const Text('습도(%)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.chartHumid)),
-                            axisNameSize: 20,
-                            sideTitles: SideTitles(showTitles: true, reservedSize: 35, getTitlesWidget: (v, m) => v % 20 != 0 ? const SizedBox.shrink() : Text('${v.toInt()}', style: const TextStyle(fontSize: 11, color: AppColors.chartHumid))),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              getTitlesWidget: (double value, TitleMeta meta) {
+                                int index = value.toInt();
+                                if (index < 0 || index >= ripenessList.length) return const SizedBox.shrink();
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 8.0),
+                                  child: Text(ripenessList[index].date, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                );
+                              },
+                            ),
                           ),
                         ),
-                        borderData: FlBorderData(show: true, border: Border.all(color: Colors.grey.shade300)),
-                        lineBarsData: [
-                          LineChartBarData(spots: _dashboardController.tempSpots, isCurved: true, color: AppColors.chartTemp, barWidth: 3, dotData: const FlDotData(show: true)),
-                          LineChartBarData(spots: _dashboardController.humiditySpots, isCurved: true, color: AppColors.chartHumid, barWidth: 3, dotData: const FlDotData(show: false)),
-                        ],
+                        borderData: FlBorderData(show: true, border: Border(bottom: BorderSide(color: Colors.grey.shade400, width: 1))),
+
+                        barGroups: ripenessList.asMap().entries.map((entry) {
+                          int index = entry.key;
+                          RipenessData data = entry.value;
+                          return BarChartGroupData(
+                            x: index,
+                            barsSpace: 4,
+                            barRods: [
+                              BarChartRodData(toY: data.unripeCount.toDouble(), color: Colors.green, width: 6, borderRadius: BorderRadius.circular(2)),
+                              BarChartRodData(toY: data.ripeCount.toDouble(), color: Colors.redAccent, width: 6, borderRadius: BorderRadius.circular(2)),
+                              BarChartRodData(toY: data.overripeCount.toDouble(), color: Colors.purple, width: 6, borderRadius: BorderRadius.circular(2)),
+                            ],
+                          );
+                        }).toList(),
                       ),
                     );
                   },

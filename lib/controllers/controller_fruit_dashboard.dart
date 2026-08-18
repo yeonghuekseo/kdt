@@ -7,18 +7,32 @@ import 'package:fl_chart/fl_chart.dart';
 import '../core/api_config.dart';
 import '../services/service_api.dart';
 
+class RipenessData {
+  final String date;
+  final int unripeCount;   // 미숙
+  final int ripeCount;     // 적숙
+  final int overripeCount; // 과숙
+
+  RipenessData({required this.date, required this.unripeCount, required this.ripeCount, required this.overripeCount});
+}
+
 class FruitDashboardController extends ChangeNotifier {
   final String userId;
+  final String fruitCode;
   final String fruitName;
+  final void Function(String newZone)? onZoneUpdated;
 
   MqttServerClient? client;
   bool isConnected = false;
-  List<FlSpot> tempSpots = [];
-  List<FlSpot> humiditySpots = [];
-  int xCounter = 0;
+  List<RipenessData> ripenessList = [];
   final List<Map<String, dynamic>> alertLogs = [];
 
-  FruitDashboardController({required this.userId, required this.fruitName}) {
+  FruitDashboardController({
+    required this.userId,
+    required this.fruitCode,
+    required this.fruitName,
+    this.onZoneUpdated,
+  }) {
     loadInitialData();
     initMqtt();
   }
@@ -30,26 +44,28 @@ class FruitDashboardController extends ChangeNotifier {
   }
 
   Future<void> loadInitialData() async {
-      final url = ApiConfig.envLogsUrl(userId);
-      final responseData = await ApiService.get(url);
+    final url = ApiConfig.cropSummaryUrl(userId, fruitCode);
+    final responseData = await ApiService.get(url);
 
-      if (responseData != null &&  responseData['status'] == 'success' && responseData['data'] != null) {
-        final List<dynamic> logs = responseData['data'];
-        List<FlSpot> loadedTemp = [];
-        List<FlSpot> loadedHumid = [];
+    if(responseData != null && responseData['status'] == 'success' && responseData['data'] != null) {
+      final Map<String, dynamic> data = responseData['data'];
 
-        for (int i = 0; i < logs.length; i++) {
-          double tValue = (logs[i]['temperature'] ?? 0.0).toDouble();
-          double hValue = (logs[i]['humidity'] ?? 0.0).toDouble();
-          loadedTemp.add(FlSpot(i.toDouble(), tValue));
-          loadedHumid.add(FlSpot(i.toDouble(), hValue));
-        }
+      if(data.containsKey('growth_ranges') && data['growth_ranges'] is List) {
+        final List<dynamic> ranges = data['growth_ranges'];
 
-        tempSpots = loadedTemp;
-        humiditySpots = loadedHumid;
-        xCounter = logs.length;
-        notifyListeners();
+        ripenessList = ranges.map((item) {
+          return RipenessData(
+              date: item['data']?.toString() ?? '알수없음',
+              unripeCount: int.tryParse(item['unripe']?.toString() ?? '0') ?? 0,
+              ripeCount: int.tryParse(item['ripe']?.toString() ?? '0') ?? 0,
+              overripeCount: int.tryParse(item['overripe']?.toString() ?? '0') ?? 0
+          );
+        }).toList();
       }
+    }else{
+      ripenessList = [];
+    }
+        notifyListeners();
     }
 
 
@@ -59,6 +75,13 @@ class FruitDashboardController extends ChangeNotifier {
     client!.port = ApiConfig.mqttPort;
     client!.keepAlivePeriod = 20;
     client!.logging(on: false);
+
+    client!.onDisconnected = () {
+      debugPrint('⚠️ MQTT 연결 끊김. 5초 후 재연결 시도...');
+      isConnected = false;
+      notifyListeners();
+      Future.delayed(const Duration(seconds: 5), () => initMqtt());
+    };
 
     final connMess = MqttConnectMessage().withClientIdentifier(clientId).startClean();
     client!.connectionMessage = connMess;
@@ -81,7 +104,9 @@ class FruitDashboardController extends ChangeNotifier {
         final Map<String, dynamic> data = jsonDecode(pt);
 
         if (receivedTopic == robotStatusTopic) {
-          _parseAndUpdateGraph(data);
+          if(data.containsKey('zone') && onZoneUpdated != null) {
+            onZoneUpdated!(data['zone'].toString());
+          }
         }
         if (receivedTopic == alertTopic) {
           _handleDiseaseAlert(data);
@@ -93,21 +118,6 @@ class FruitDashboardController extends ChangeNotifier {
       isConnected = false;
       notifyListeners();
     }
-  }
-
-  void _parseAndUpdateGraph(Map<String, dynamic> data) {
-    double tValue = (data['temperature'] ?? 0.0).toDouble();
-    double hValue = (data['humidity'] ?? 0.0).toDouble();
-
-    tempSpots.add(FlSpot(xCounter.toDouble(), tValue));
-    humiditySpots.add(FlSpot(xCounter.toDouble(), hValue));
-    xCounter++;
-
-    if (tempSpots.length > 20) {
-      tempSpots.removeAt(0);
-      humiditySpots.removeAt(0);
-    }
-    notifyListeners();
   }
 
   void _handleDiseaseAlert(Map<String, dynamic> alertData) {

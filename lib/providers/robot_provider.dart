@@ -12,6 +12,13 @@ class RobotProvider extends ChangeNotifier {
   double get sliderValue => _sliderValue;
   bool get isReturningHome => _isReturningHome;
 
+  void updateZone(String newZone) {
+    if (_currentZone != newZone) {
+      _currentZone = newZone;
+      notifyListeners();
+    }
+  }
+
   void updateSliderDragging(double value) {
     _sliderValue = value;
     notifyListeners();
@@ -30,13 +37,13 @@ class RobotProvider extends ChangeNotifier {
     );
   }
 
-  void sendReturnCommand(String userId, String robotId) {
+  Future<void> sendReturnCommand(String userId, String robotId) async {
     if (_isReturningHome) return;
 
     _isReturningHome = true;
     notifyListeners();
 
-    _robotService.sendCommandToRobot(
+    await _robotService.sendCommandToRobot(
       userId: userId,
       robotId: robotId,
       command: 'return_home',

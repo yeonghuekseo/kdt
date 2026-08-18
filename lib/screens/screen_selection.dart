@@ -1,6 +1,7 @@
 // lib/screens/screen_selection.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../services/service_crop_data.dart';
 import '../models/app_models.dart';
 import '../providers/auth_provider.dart';
@@ -21,16 +22,26 @@ class FruitSelectionScreen extends StatefulWidget {
   State<FruitSelectionScreen> createState() => _FruitSelectionScreenState();
 }
 
-class _FruitSelectionScreenState extends State<FruitSelectionScreen> with SingleTickerProviderStateMixin {
+class _FruitSelectionScreenState extends State<FruitSelectionScreen> with TickerProviderStateMixin {
   List<CropModel> fruits = [];
   bool _isLoadingCrops = true;
   late AnimationController _waveController;
+  late AnimationController _snapController;
+  // 🌟 메인 화면용 임시 온습도 데이터 (추후 API 연동 필요)
+  final List<FlSpot> _dummyTempSpots = const [FlSpot(0, 22), FlSpot(1, 24), FlSpot(2, 23), FlSpot(3, 26), FlSpot(4, 25)];
+  final List<FlSpot> _dummyHumidSpots = const [FlSpot(0, 60), FlSpot(1, 62), FlSpot(2, 58), FlSpot(3, 65), FlSpot(4, 63)];
+
 
   @override
   void initState() {
     super.initState();
     _loadCrops();
     _waveController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
+    _snapController.addListener(() {
+      if (mounted) {
+        context.read<RobotProvider>().updateSliderDragging(_snapController.value);
+      }
+    });
   }
 
   Future<void> _loadCrops() async {
@@ -46,6 +57,7 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> with Single
   @override
   void dispose() {
     _waveController.dispose();
+    _snapController.dispose();
     super.dispose();
   }
 
@@ -82,7 +94,49 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> with Single
                 ),
               ),
               const SizedBox(height: 20),
-              const Text(' 모니터링할 과일을 선택하세요', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              // 🌟 [추가됨] 대시보드에서 옮겨온 농장 전체 온습도 차트 영역
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('📊 농장 실시간 온습도', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Row(
+                    children: const [
+                      Icon(Icons.circle, size: 10, color: AppColors.chartTemp),
+                      SizedBox(width: 4), Text('온도', style: TextStyle(fontSize: 12)), SizedBox(width: 12),
+                      Icon(Icons.circle, size: 10, color: AppColors.chartHumid),
+                      SizedBox(width: 4), Text('습도', style: TextStyle(fontSize: 12)),
+                    ],
+                  )
+                ],
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 180, // 높이를 살짝 줄여 화면 밸런스 유지
+                child: LineChart(
+                  LineChartData(
+                    lineTouchData: const LineTouchData(enabled: false),
+                    minY: 0, maxY: 100, minX: 0, maxX: 4,
+                    gridData: const FlGridData(show: true, drawVerticalLine: false),
+                    titlesData: FlTitlesData(
+                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      bottomTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      leftTitles: AxisTitles(
+                        axisNameSize: 20,
+                        sideTitles: SideTitles(showTitles: true, reservedSize: 30, getTitlesWidget: (v, m) => v % 20 != 0 ? const SizedBox.shrink() : Text('${v.toInt()}', style: const TextStyle(fontSize: 10, color: Colors.grey))),
+                      ),
+                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    ),
+                    borderData: FlBorderData(show: true, border: Border.all(color: Colors.grey.shade300)),
+                    lineBarsData: [
+                      LineChartBarData(spots: _dummyTempSpots, isCurved: true, color: AppColors.chartTemp, barWidth: 3, dotData: const FlDotData(show: true)),
+                      LineChartBarData(spots: _dummyHumidSpots, isCurved: true, color: AppColors.chartHumid, barWidth: 3, dotData: const FlDotData(show: false)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              const Text('작물별 현황', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
 
               if (_isLoadingCrops)
@@ -183,7 +237,6 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> with Single
 
                             const SizedBox(height: 16),
 
-                            // 🌟 [오버플로우 해결 5] 슬라이더에 Expanded 대신 충분한 고정 높이(100)를 부여
                             SizedBox(
                               height: 100,
                               child: AnimatedBuilder(
@@ -198,15 +251,17 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> with Single
                                       child: Slider(
                                         value: robotProvider.sliderValue, min: 0.0, max: 1.0,
                                         onChanged: (value) => context.read<RobotProvider>().updateSliderDragging(value),
-                                        onChangeEnd: (value) async {
+                                        onChangeEnd: (value) {
                                           double targetValue = value >= 0.5 ? 1.0 : 0.0;
-                                          int steps = 40; double startValue = robotProvider.sliderValue; double diff = targetValue - startValue;
-                                          for(int i = 1; i <= steps; i++ ) {
-                                            await Future.delayed(const Duration(milliseconds: 12));
-                                            if(!mounted) return;
-                                            context.read<RobotProvider>().updateSliderDragging(startValue + (diff * (i / steps)));
-                                          }
-                                          if(mounted) context.read<RobotProvider>().updateSliderEnd(targetValue, userId, 'R001');
+                                          _snapController.value = value;
+                                          _snapController.animateTo(
+                                            targetValue,
+                                            curve: Curves.easeOutCubic,
+                                          ).then((_) {
+                                            if (mounted) {
+                                              context.read<RobotProvider>().updateSliderEnd(targetValue, userId, 'R001');
+                                            }
+                                          });
                                         },
                                       ),
                                     );
