@@ -2,7 +2,7 @@
 
 class ApiConfig {
   // 1. 서버 IP 및 포트 설정 (이곳만 변경하면 전체 앱에 적용됨)
-  static const String serverIp = '15.134.88.1'; // 백엔드 서버 IP
+  static const String serverIp = '15.134.203.220'; // 백엔드 서버 IP
   static const int restPort = 12345;              // HTTP REST API 포트
   static const int mqttPort = 1883;               // MQTT 포트
 

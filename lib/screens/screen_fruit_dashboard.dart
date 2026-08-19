@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import '../core/app_theme.dart';
 import '../widgets/app_widgets.dart';
 import '../controllers/controller_fruit_dashboard.dart';
-import '../providers/robot_provider.dart';
+import '../providers/alert_provider.dart';
 import 'screen_disease_alert_history.dart';
 
 class FruitDashboardScreen extends StatefulWidget {
@@ -15,7 +15,14 @@ class FruitDashboardScreen extends StatefulWidget {
   final String selectedFruitIcon;
   final String selectedFruitCode;
 
-  const FruitDashboardScreen({super.key, required this.currentUserId, required this.currentUserName, required this.selectedFruitName, required this.selectedFruitIcon, required this.selectedFruitCode});
+  const FruitDashboardScreen({
+    super.key,
+    required this.currentUserId,
+    required this.currentUserName,
+    required this.selectedFruitName,
+    required this.selectedFruitIcon,
+    required this.selectedFruitCode
+  });
 
   @override
   State<FruitDashboardScreen> createState() => _FruitDashboardScreenState();
@@ -28,14 +35,8 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
   void initState() {
     super.initState();
     _dashboardController = FruitDashboardController(
-        userId: widget.currentUserId,
-        fruitCode: widget.selectedFruitCode,
-        fruitName: widget.selectedFruitName,
-        onZoneUpdated: (newZone) {
-          if (mounted) {
-            context.read<RobotProvider>().updateZone(newZone);
-          }
-        }
+      userId: widget.currentUserId,
+      fruitCode: widget.selectedFruitCode,
     );
   }
 
@@ -46,11 +47,19 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
   }
 
   void _goToAlertHistoryScreen(BuildContext context) {
-    Navigator.push(context, MaterialPageRoute(builder: (context) => ScreenDiseaseAlertHistory(currentUserId: widget.currentUserId)));
+    Navigator.push(context,
+        MaterialPageRoute(
+            builder: (context) => ScreenDiseaseAlertHistory(currentUserId: widget.currentUserId)
+        )
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final alertProvider = context.watch<AlertProvider>();
+    final isMqttConnected = alertProvider.isConnected;
+    final alertCount = alertProvider.alertLogs.length;
+
     return EcoGlassScaffold(
       title: FittedBox(
         fit: BoxFit.scaleDown,
@@ -59,18 +68,12 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
       actions: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: ListenableBuilder(
-            listenable: _dashboardController,
-            builder: (context, _) {
-              bool connected = _dashboardController.isConnected;
-              return Row(
-                children: [
-                  Icon(Icons.circle, size: 12, color: connected ? Colors.green : Colors.red),
-                  const SizedBox(width: 6),
-                  Text(connected ? 'MQTT 연결됨' : '연결 끊김', style: const TextStyle(fontSize: 12)),
+          child: Row(
+            children: [
+              Icon(Icons.circle, size: 12, color: isMqttConnected ? Colors.green : Colors.red),
+              const SizedBox(width: 6),
+                  Text(isMqttConnected ? 'MQTT 연결됨' : '연결 끊김', style: const TextStyle(fontSize: 12)),
                 ],
-              );
-            },
           ),
         )
       ],
@@ -112,7 +115,7 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
                             ),
                             onPressed: () => _goToAlertHistoryScreen(context),
                             icon: const Icon(Icons.warning_amber_rounded, size: 18),
-                            label: Text('${_dashboardController.alertLogs.length}건', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            label: Text('$alertCount건', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                           );
                         },
                       ),
@@ -124,7 +127,7 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('📊 실시간 온습도 환경 분석', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const Text('📊 생육 비율 집계', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   Row(
                     children: const [
                       Icon(Icons.square, size: 12, color: Colors.green), SizedBox(width: 4), Text('미숙', style: TextStyle(fontSize: 12)), SizedBox(width: 8),
@@ -195,35 +198,15 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              const Text('🚨 AI 비전 진단 알림 목록', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const Text('📸 작물 조회 이력', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               Expanded(
-                child: ListenableBuilder(
-                  listenable: _dashboardController,
-                  builder: (context, _) {
-                    final logs = _dashboardController.alertLogs;
-                    if (logs.isEmpty) return const Center(child: Text('이상 감지 내역이 없습니다.', style: TextStyle(color: Colors.grey)));
-                    return ListView.builder(
-                      itemCount: logs.length,
-                      itemBuilder: (context, index) {
-                        final alert = logs[index];
-                        return Card(
-                          elevation: 0, color: Colors.white, margin: const EdgeInsets.symmetric(vertical: 4),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
-                          child: ListTile(
-                            leading: alert['image_url'] != null
-                                ? ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(alert['image_url'], width: 50, height: 50, fit: BoxFit.cover))
-                                : Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.15), shape: BoxShape.circle),
-                              child: const Icon(Icons.warning_amber_rounded, color: Colors.red),
-                            ),
-                            title: Text(alert['message'] ?? '진단결과', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                            subtitle: Text('구역: ${alert['zone'] ?? '-'} | 상태: ${alert['health_status'] ?? '-'}'),
-                          ),
-                        );
-                      },
-                    );
+                child: Builder(
+                  builder: (context) {
+                    // 🌟 수정 부분: 컨트롤러에 없는 inspectionLogs 대신 빈 리스트 처리 또는 추후 구현을 위한 뼈대만 남김
+                    final logs = [];
+                    if (logs.isEmpty) return const Center(child: Text('조회 이력이 없습니다.', style: TextStyle(color: Colors.grey)));
+                    return ListView();
                   },
                 ),
               ),

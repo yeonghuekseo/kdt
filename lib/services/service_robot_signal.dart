@@ -3,6 +3,10 @@ import '../core/api_config.dart';
 import 'service_api.dart';
 
 class RobotControlService {
+  static final RobotControlService _instance = RobotControlService._internal();
+  factory RobotControlService() => _instance;
+  RobotControlService._internal();
+
   String _lastSentCommand = 'stop';
 
   Future<void> sendCommandToRobot({
@@ -23,7 +27,6 @@ class RobotControlService {
         requestBody['zone_id'] = zoneId;
       }
 
-      //ApiService 활용 (에러 처리는 내부에서 진행되므로 실패 시 null 반환)
       final response = await ApiService.post(url, requestBody);
       if (response == null) {
         onError('로봇 명령 전송 실패');

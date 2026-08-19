@@ -11,7 +11,7 @@ class ApiService {
       final response = await http.get(uri);
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body); // 성공 시 파싱된 데이터 반환
+        return jsonDecode(utf8.decode(response.bodyBytes)); // 성공 시 파싱된 데이터 반환
       } else {
         debugPrint('❌ API 에러 (상태 코드: ${response.statusCode})');
         return null;
@@ -33,7 +33,7 @@ class ApiService {
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        return jsonDecode(response.body);
+        return jsonDecode(utf8.decode(response.bodyBytes));
       } else {
         debugPrint('❌ API 에러 (상태 코드: ${response.statusCode})');
         return null;
