@@ -8,7 +8,6 @@ import '../core/app_theme.dart';
 import '../providers/crop_provider.dart';
 import '../providers/environment_provider.dart';
 import '../providers/alert_provider.dart';
-// import '../controllers/controller_fruit_dashboard.dart'; // 🌟 Removed unused import
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -19,16 +18,14 @@ class CalendarScreen extends StatefulWidget {
 class _CalendarScreenState extends State<CalendarScreen> {
   DateTime _displayDate = DateTime.now();
 
-  void _moveMonth(int delta) {
-    setState(() => _displayDate = DateTime(_displayDate.year, _displayDate.month + delta, 1));
-  }
+  void _moveMonth(int delta) => setState(() => _displayDate = DateTime(_displayDate.year, _displayDate.month + delta, 1));
 
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final firstDay = DateTime(_displayDate.year, _displayDate.month, 1);
     final offset = firstDay.weekday % 7;
-    
+
     return Consumer3<EnvironmentProvider, AlertProvider, CropProvider>(
       builder: (context, envP, alertP, cropP, _) {
         final diseaseSet = alertP.alertLogs.map((l) => (l['timestamp'] ?? '').toString().split(' ')[0]).toSet();
@@ -70,7 +67,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               date: date, env: envP.dailyMap[md], harvestIcon: harvestMap[ymd], hasDisease: diseaseSet.contains(ymd),
                               isCurrentMonth: date.month == _displayDate.month, isToday: date.year == now.year && date.month == now.month && date.day == now.day,
                               note: envP.getNoteForDate(ymd),
-                              onTap: () => _showNoteDialog(context, date, envP.dailyMap[md], envP),
+                              onTap: () => _showNoteDialog(context, date, envP.dailyMap[md], envP, ymd),
                             );
                           },
                         ),
@@ -102,37 +99,77 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return Row(children: List.generate(7, (i) => Expanded(child: Center(child: Text(days[i], style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: i==0?Colors.red:(i==6?Colors.blue:Colors.grey)))))));
   }
 
-  void _showNoteDialog(BuildContext context, DateTime date, EnvDailyData? env, EnvironmentProvider provider) {
-    final ymd = '${date.year}-${date.month.toString().padLeft(2,'0')}-${date.day.toString().padLeft(2,'0')}';
-    final controller = TextEditingController(text: provider.getNoteForDate(ymd));
-    showDialog<String>(
-      context: context, barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: Text('${date.month}월 ${date.day}일 농장 기록'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (env != null) ...[
-              _row('온도', '${env.minTemp}~${env.maxTemp}°C', Colors.red),
-              _row('습도', '${env.minHumid}~${env.maxHumid}%', Colors.blue),
-              const Divider(),
-            ],
-            TextField(controller: controller, maxLength: 8, decoration: const InputDecoration(hintText: '메모 (최대 8자)', counterText: "")),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, controller.text), child: const Text('저장')),
-        ],
-      ),
-    ).then((savedText) {
-      if (savedText != null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => provider.saveNoteForDate(ymd, savedText));
-      }
-      controller.dispose();
-    });
+  // 🌟 StatefulWidget을 가진 별도의 다이얼로그 호출
+  void _showNoteDialog(BuildContext context, DateTime date, EnvDailyData? env, EnvironmentProvider provider, String ymd) {
+    showDialog(
+      context: context,
+      builder: (ctx) => _NoteDialogWidget(date: date, env: env, provider: provider, ymd: ymd),
+    );
+  }
+}
+
+// 🌟 읽기/수정 모드 관리를 위한 Stateful 다이얼로그 위젯
+class _NoteDialogWidget extends StatefulWidget {
+  final DateTime date;
+  final EnvDailyData? env;
+  final EnvironmentProvider provider;
+  final String ymd;
+  const _NoteDialogWidget({required this.date, this.env, required this.provider, required this.ymd});
+
+  @override
+  State<_NoteDialogWidget> createState() => _NoteDialogWidgetState();
+}
+
+class _NoteDialogWidgetState extends State<_NoteDialogWidget> {
+  late TextEditingController _controller;
+  bool _isEditing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.provider.getNoteForDate(widget.ymd));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   Widget _row(String l, String v, Color c) => Padding(padding: const EdgeInsets.symmetric(vertical: 2), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(l, style: const TextStyle(fontSize: 12)), Text(v, style: TextStyle(color: c, fontWeight: FontWeight.bold, fontSize: 13))]));
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      title: Text('${widget.date.month}월 ${widget.date.day}일 농장 기록'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (widget.env != null) ...[
+            _row('온도', '${widget.env!.minTemp}~${widget.env!.maxTemp}°C', Colors.red),
+            _row('습도', '${widget.env!.minHumid}~${widget.env!.maxHumid}%', Colors.blue),
+            const Divider(),
+          ],
+          if (_isEditing)
+            TextField(controller: _controller, maxLength: 8, decoration: const InputDecoration(hintText: '메모 (최대 8자)', counterText: ""), autofocus: true)
+          else
+            Container(
+              width: double.infinity, padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
+              child: Text(_controller.text.isEmpty ? '등록된 메모가 없습니다.' : _controller.text, style: TextStyle(color: _controller.text.isEmpty ? Colors.grey : Colors.black87)),
+            ),
+        ],
+      ),
+      actions: _isEditing
+          ? [
+        TextButton(onPressed: () => setState(() { _controller.text = widget.provider.getNoteForDate(widget.ymd); _isEditing = false; }), child: const Text('취소')),
+        ElevatedButton(onPressed: () { widget.provider.saveNoteForDate(widget.ymd, _controller.text); Navigator.pop(context); }, child: const Text('저장')),
+      ]
+          : [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('닫기')),
+        ElevatedButton(onPressed: () => setState(() => _isEditing = true), child: const Text('메모 수정')),
+      ],
+    );
+  }
 }

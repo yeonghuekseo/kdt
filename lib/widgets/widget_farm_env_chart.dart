@@ -13,8 +13,8 @@ class FarmEnvChartWidget extends StatelessWidget {
     if (envProvider.isLoading) return const Center(child: CircularProgressIndicator(color: Colors.green));
     if (envProvider.dailyLogs.isEmpty) return const Center(child: Text('데이터가 없습니다.'));
 
-    final chartWidth = envProvider.dailyLogs.length * AppConstants.chartScrollWidthPerDay > MediaQuery.of(context).size.width 
-        ? envProvider.dailyLogs.length * AppConstants.chartScrollWidthPerDay 
+    final chartWidth = envProvider.dailyLogs.length * AppConstants.chartScrollWidthPerDay > MediaQuery.of(context).size.width
+        ? envProvider.dailyLogs.length * AppConstants.chartScrollWidthPerDay
         : MediaQuery.of(context).size.width - 32;
 
     const double chartTotalHeight = 390.0;
@@ -30,13 +30,13 @@ class FarmEnvChartWidget extends StatelessWidget {
     ];
 
     return Container(
-      height: chartTotalHeight, 
+      height: chartTotalHeight,
       padding: const EdgeInsets.only(bottom: 5),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 45), 
+            padding: const EdgeInsets.symmetric(horizontal: 45),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: SizedBox(
@@ -45,43 +45,29 @@ class FarmEnvChartWidget extends StatelessWidget {
                 child: LineChart(
                   LineChartData(
                     lineTouchData: LineTouchData(
-                      enabled: false, 
+                      enabled: false,
                       touchTooltipData: LineTouchTooltipData(
                         tooltipBgColor: Colors.transparent,
                         tooltipPadding: EdgeInsets.zero,
-                        tooltipMargin: 2, // 🌟 지점 바로 위에 위치하도록 마진 조정
+                        tooltipMargin: 2,
                         getTooltipItems: (spots) => spots.map((s) {
                           double val = s.y;
                           if (s.barIndex < 2) val /= AppConstants.tempScaleFactor;
-                          return LineTooltipItem(
-                            val.toStringAsFixed(0),
-                            TextStyle(
-                              color: bars[s.barIndex].color, 
-                              fontWeight: FontWeight.bold, 
-                              fontSize: 8,
-                            ),
-                          );
+                          return LineTooltipItem(val.toStringAsFixed(0), TextStyle(color: bars[s.barIndex].color, fontWeight: FontWeight.bold, fontSize: 8));
                         }).toList(),
                       ),
                     ),
-                    // 🌟 [핵심] 최고점과 최저점 각각 독립된 위치에 수치를 표시하기 위해 인디케이터 분리
+                    // 🌟 Out of Bounds 방지: dailyLogs.length가 아닌 실제 spots.length 만큼 생성
                     showingTooltipIndicators: [
-                      // 모든 바의 모든 지점에 대해 개별 인디케이터 생성 (각자 자기 위치 위에 뜸)
                       ...List.generate(bars.length, (barIdx) {
-                        return List.generate(envProvider.dailyLogs.length, (i) {
-                          return ShowingTooltipIndicators([
-                            LineBarSpot(bars[barIdx], barIdx, bars[barIdx].spots[i]),
-                          ]);
+                        return List.generate(bars[barIdx].spots.length, (i) {
+                          return ShowingTooltipIndicators([LineBarSpot(bars[barIdx], barIdx, bars[barIdx].spots[i])]);
                         });
                       }).expand((e) => e).toList(),
                     ],
                     minY: 0, maxY: 100,
                     gridData: FlGridData(
-                      show: true, 
-                      drawVerticalLine: true, 
-                      verticalInterval: 1,
-                      horizontalInterval: 20, 
-                      drawHorizontalLine: true,
+                      show: true, drawVerticalLine: true, verticalInterval: 1, horizontalInterval: 20, drawHorizontalLine: true,
                       getDrawingHorizontalLine: (v) => FlLine(color: Colors.grey.withValues(alpha: 0.15), strokeWidth: 1, dashArray: [5, 5]),
                       getDrawingVerticalLine: (v) => FlLine(color: Colors.grey.withValues(alpha: 0.1), strokeWidth: 0.5),
                     ),
@@ -113,14 +99,7 @@ class FarmEnvChartWidget extends StatelessWidget {
     );
   }
 
-  LineChartBarData _line(List<FlSpot> s, Color c, double w) => LineChartBarData(
-    spots: s, 
-    isCurved: true, 
-    color: c, 
-    barWidth: w, 
-    dotData: const FlDotData(show: true), 
-    belowBarData: BarAreaData(show: false)
-  );
+  LineChartBarData _line(List<FlSpot> s, Color c, double w) => LineChartBarData(spots: s, isCurved: true, color: c, barWidth: w, dotData: const FlDotData(show: true), belowBarData: BarAreaData(show: false));
 }
 
 class _FixedAxis extends StatelessWidget {
@@ -139,8 +118,7 @@ class _FixedAxis extends StatelessWidget {
           int val = 100 - (i * 20);
           String label = isLeft ? '$val' : '${(val / AppConstants.tempScaleFactor).toInt()}';
           return Positioned(
-            top: topPos - 6,
-            left: 0, right: 0,
+            top: topPos - 6, left: 0, right: 0,
             child: Text(label, textAlign: isLeft ? TextAlign.right : TextAlign.left, style: TextStyle(fontSize: 10, color: isLeft ? Colors.blue.shade700 : Colors.red.shade700, fontWeight: FontWeight.bold)),
           );
         }),

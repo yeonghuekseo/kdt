@@ -1,7 +1,8 @@
 // lib/widgets/widget_ripeness_chart.dart
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import '../models/app_models.dart'; // 🌟 수정됨
+import 'dart:math' as math;
+import '../models/app_models.dart';
 
 class RipenessChartWidget extends StatelessWidget {
   final List<RipenessData> ripenessList;
@@ -12,10 +13,16 @@ class RipenessChartWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     if (ripenessList.isEmpty) return const Center(child: Text('집계된 데이터가 없습니다.', style: TextStyle(color: Colors.grey)));
 
-    // 🌟 [개선] 데이터 개수에 따라 가로 길이 확장 (글자 겹침 방지)
-    final double chartWidth = ripenessList.length * 60.0 > MediaQuery.of(context).size.width 
-        ? ripenessList.length * 60.0 
+    final double chartWidth = ripenessList.length * 60.0 > MediaQuery.of(context).size.width
+        ? ripenessList.length * 60.0
         : MediaQuery.of(context).size.width - 32;
+
+    // 🌟 동적으로 최대값(maxY) 계산 (오버플로우 방지)
+    double maxVal = 80;
+    for(var d in ripenessList) {
+      double maxInItem = [d.unripeCount, d.ripeCount, d.overripeCount].reduce(math.max).toDouble();
+      if (maxInItem + 20 > maxVal) maxVal = maxInItem + 20;
+    }
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -24,7 +31,7 @@ class RipenessChartWidget extends StatelessWidget {
         child: BarChart(
           BarChartData(
             alignment: BarChartAlignment.spaceAround,
-            maxY: 80,
+            maxY: maxVal,
             barTouchData: BarTouchData(enabled: true),
             gridData: const FlGridData(show: true, drawVerticalLine: false),
             titlesData: FlTitlesData(
@@ -42,11 +49,7 @@ class RipenessChartWidget extends StatelessWidget {
                   getTitlesWidget: (double value, TitleMeta meta) {
                     int index = value.toInt();
                     if (index < 0 || index >= ripenessList.length) return const SizedBox.shrink();
-                    return SideTitleWidget(
-                      axisSide: meta.axisSide,
-                      space: 8,
-                      child: Text(ripenessList[index].date, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
-                    );
+                    return SideTitleWidget(axisSide: meta.axisSide, space: 8, child: Text(ripenessList[index].date, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)));
                   },
                 ),
               ),

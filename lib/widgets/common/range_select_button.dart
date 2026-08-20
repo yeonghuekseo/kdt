@@ -1,3 +1,4 @@
+// lib/widgets/common/range_select_button.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../core/app_theme.dart';
@@ -18,6 +19,10 @@ class RangeSelectButton extends StatelessWidget {
   });
 
   void _showPicker(BuildContext context) {
+    // 🌟 Index -1 로 인한 바텀시트 크래시 방지
+    int initialIndex = options.indexOf(currentValue);
+    if (initialIndex < 0) initialIndex = 0;
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
@@ -33,7 +38,7 @@ class RangeSelectButton extends StatelessWidget {
                 child: CupertinoPicker(
                   itemExtent: 40,
                   onSelectedItemChanged: (index) => onSelected(options[index]),
-                  scrollController: FixedExtentScrollController(initialItem: options.indexOf(currentValue)),
+                  scrollController: FixedExtentScrollController(initialItem: initialIndex),
                   children: options.map((val) => Center(child: Text('$val $label'))).toList(),
                 ),
               ),

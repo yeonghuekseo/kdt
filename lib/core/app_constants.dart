@@ -1,4 +1,4 @@
-// Removed unused import: import 'package:flutter/material.dart';
+// lib/core/app_constants.dart
 
 /// 🌟 [전역 상수 관리] 앱 전반에서 반복 사용되는 수치 및 설정값
 class AppConstants {
@@ -13,16 +13,6 @@ class AppConstants {
   static const Duration mqttThrottle = Duration(milliseconds: 500); // UI 갱신 제한 시간
 
   // 차트 디자인 수치
-  static const double chartScrollWidthPerDay = 48.0; // 🌟 간격 축소 (65 -> 48)
+  static const double chartScrollWidthPerDay = 48.0;
   static const double tempScaleFactor = 2.0; // 온도 시각화 가중치
-}
-
-/// 🌟 [전역 데이터 모델] 여러 파일에서 공통으로 사용되는 데이터 구조
-class HarvestRange {
-  final DateTime start;
-  final DateTime end;
-  final String fruitIcon;
-  final String fruitName;
-
-  HarvestRange({required this.start, required this.end, required this.fruitIcon, required this.fruitName});
 }

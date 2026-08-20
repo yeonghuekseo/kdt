@@ -32,9 +32,18 @@ class CropModel {
   Map<String, dynamic> toJson() => {'name': name, 'icon': icon};
 }
 
-// 🌟 [추가] 전역에서 사용할 생육 상태 데이터 모델
 class RipenessData {
   final String date;
   final int unripeCount, ripeCount, overripeCount;
   RipenessData({required this.date, required this.unripeCount, required this.ripeCount, required this.overripeCount});
+}
+
+// 🌟 app_constants.dart 에서 이동됨
+class HarvestRange {
+  final DateTime start;
+  final DateTime end;
+  final String fruitIcon;
+  final String fruitName;
+
+  HarvestRange({required this.start, required this.end, required this.fruitIcon, required this.fruitName});
 }

@@ -9,14 +9,16 @@ class AlertProvider extends ChangeNotifier {
   List<Map<String, dynamic>> alertLogs = [];
   List<Map<String, dynamic>> inspectionLogs = [];
   bool isLoading = false;
-  
-  // 🌟 MQTT 연결 상태 게터 추가
+
   bool get isConnected => MqttService().isConnected;
-  
+
+  // 🌟 읽지 않은 알림 개수 계산 Getter 추가
+  int get unreadAlertCount => alertLogs.where((log) => log['isRead'] != true).length;
+
   static const int _maxLogCount = 100;
   bool _isDisposed = false;
   StreamSubscription? _mqttSubscription;
-  Timer? _throttleTimer; // 🌟 리빌드 과부하 방지용 타이머
+  Timer? _throttleTimer;
 
   @override
   void dispose() {
@@ -26,12 +28,19 @@ class AlertProvider extends ChangeNotifier {
     super.dispose();
   }
 
-  // 🌟 성능 최적화: notifyListeners를 너무 자주 호출하지 않음 (최대 0.5초 간격)
   void _throttledNotify() {
     if (_throttleTimer?.isActive ?? false) return;
     _throttleTimer = Timer(const Duration(milliseconds: 500), () {
       if (!_isDisposed) notifyListeners();
     });
+  }
+
+  // 🌟 항목을 읽음 처리하는 메서드 추가
+  void markAlertAsRead(Map<String, dynamic> log) {
+    if (log['isRead'] != true) {
+      log['isRead'] = true;
+      notifyListeners();
+    }
   }
 
   void init(String userId) {
@@ -57,6 +66,10 @@ class AlertProvider extends ChangeNotifier {
   }
 
   void _addLogToList(List<Map<String, dynamic>> list, Map<String, dynamic> data) {
+    // 🌟 새로 추가되는 데이터는 기본적으로 '읽지 않음(false)' 처리
+    if (!data.containsKey('isRead')) {
+      data['isRead'] = false;
+    }
     list.insert(0, data);
     if (list.length > _maxLogCount) list.removeLast();
   }
@@ -72,6 +85,7 @@ class AlertProvider extends ChangeNotifier {
       inspectionLogs.clear();
       for (var log in logs) {
         final logMap = Map<String, dynamic>.from(log);
+        logMap['isRead'] = false; // 🌟 API로 불러온 과거 데이터도 기본 안읽음 처리
         _addLogToList(inspectionLogs, logMap);
         if (['경고', '위험'].contains(logMap['health_status'])) {
           _addLogToList(alertLogs, logMap);

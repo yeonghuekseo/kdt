@@ -23,9 +23,8 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
   @override
   void initState() {
     super.initState();
-    // 🌟 CropProvider 주입 및 컨트롤러 초기화
     _dashboardController = FruitDashboardController(
-      userId: widget.currentUserId, 
+      userId: widget.currentUserId,
       fruitCode: widget.selectedFruitCode,
       cropProvider: Provider.of<CropProvider>(context, listen: false),
     );
@@ -59,7 +58,6 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 1. 상단 모니터링 경고 카드 블록
               Card(
                 color: AppColors.alertCardBg, elevation: 0,
                 child: Padding(
@@ -83,15 +81,14 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.red.shade700, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), side: BorderSide(color: Colors.red.shade300, width: 1.0), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
                         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ScreenDiseaseAlertHistory(currentUserId: widget.currentUserId))),
                         icon: const Icon(Icons.warning_amber_rounded, size: 18),
-                        label: Text('${alertProvider.alertLogs.length}건', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        // 🌟 전체 개수가 아닌 읽지 않은(unread) 알림 개수만 표시하도록 변경
+                        label: Text('${alertProvider.unreadAlertCount}건', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                       ),
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: 16),
-
-              // 2. 생육 비율 차트 블록
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -102,9 +99,7 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
                       ListenableBuilder(
                         listenable: _dashboardController,
                         builder: (context, _) => RangeSelectButton(
-                          label: '일',
-                          currentValue: _dashboardController.selectedRange,
-                          options: const [7, 14, 30, 60],
+                          label: '일', currentValue: _dashboardController.selectedRange, options: const [7, 14, 30, 60],
                           onSelected: (val) => _dashboardController.setRange(val),
                         ),
                       ),
@@ -125,14 +120,10 @@ class _FruitDashboardScreenState extends State<FruitDashboardScreen> {
                   builder: (context, _) => RipenessChartWidget(ripenessList: _dashboardController.ripenessList),
                 ),
               ),
-
-              // 3. 작물 조회 이력 리스트
               const SizedBox(height: 20),
               const Text('📸 작물 조회 이력', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              Expanded(
-                child: InspectionHistoryWidget(logs: alertProvider.inspectionLogs),
-              ),
+              Expanded(child: InspectionHistoryWidget(logs: alertProvider.inspectionLogs)),
             ],
           ),
         );

@@ -1,3 +1,4 @@
+// lib/widgets/calendar/calendar_day_tile.dart
 import 'package:flutter/material.dart';
 import '../../core/app_theme.dart';
 import '../../core/app_constants.dart';
@@ -24,7 +25,6 @@ class CalendarDayTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 수치 판단 로직
     final bool isTempHigh = env != null && env!.maxTemp >= AppConstants.tempHighLimit;
     final bool isTempLow = env != null && env!.minTemp <= AppConstants.tempLowLimit;
     final bool isHumidHigh = env != null && env!.maxHumid >= AppConstants.humidHighLimit;
@@ -42,58 +42,41 @@ class CalendarDayTile extends StatelessWidget {
           opacity: isCurrentMonth ? 1 : 0.3,
           child: Stack(
             children: [
-              // 1. 날짜 숫자 (좌측 상단)
               Positioned(top: 4, left: 4, child: Text('${date.day}', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.normal))),
-              
-              // 2. 수확 아이콘 (우측 상단)
               if (harvestIcon != null) Positioned(top: 4, right: 4, child: Text(harvestIcon!, style: const TextStyle(fontSize: 10))),
-              
-              // 3. 중앙 수직 레이아웃 (높음 - 메모 - 낮음)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween, // 위, 중앙, 아래로 분산
-                    children: [
-                      // 상단: 높음 알림 (↑)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (isTempHigh) const Text('🌡️↑', style: TextStyle(fontSize: 7.5, color: Colors.red, fontWeight: FontWeight.bold)),
-                          if (isTempHigh && isHumidHigh) const SizedBox(width: 2),
-                          if (isHumidHigh) const Text('💧↑', style: TextStyle(fontSize: 7.5, color: Colors.blue, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                      
-                      // 중앙: 메모 텍스트
-                      if (note != null && note!.isNotEmpty)
-                        Expanded(
-                          child: Center(
-                            child: Text(
-                              note!,
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 8.5, color: Colors.black87, fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                        ),
 
-                      // 하단: 낮음 알림 (↓)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (isTempLow) const Text('🌡️↓', style: TextStyle(fontSize: 7.5, color: Colors.red, fontWeight: FontWeight.bold)),
-                          if (isTempLow && isHumidLow) const SizedBox(width: 2),
-                          if (isHumidLow) const Text('💧↓', style: TextStyle(fontSize: 7.5, color: Colors.blue, fontWeight: FontWeight.bold)),
-                        ],
+              // 🌟 Expanded 에러 방지: Positioned로 상하단 명시적 여백 제공하여 영역 강제 고정
+              Positioned(
+                top: 14, bottom: 12, left: 2, right: 2,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (isTempHigh) const Text('🌡️↑', style: TextStyle(fontSize: 7.5, color: Colors.red, fontWeight: FontWeight.bold)),
+                        if (isTempHigh && isHumidHigh) const SizedBox(width: 2),
+                        if (isHumidHigh) const Text('💧↑', style: TextStyle(fontSize: 7.5, color: Colors.blue, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    if (note != null && note!.isNotEmpty)
+                      Flexible( // Expanded 대신 Flexible 사용
+                        child: Text(
+                          note!, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 8.5, color: Colors.black87, fontWeight: FontWeight.w600),
+                        ),
                       ),
-                    ],
-                  ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (isTempLow) const Text('🌡️↓', style: TextStyle(fontSize: 7.5, color: Colors.red, fontWeight: FontWeight.bold)),
+                        if (isTempLow && isHumidLow) const SizedBox(width: 2),
+                        if (isHumidLow) const Text('💧↓', style: TextStyle(fontSize: 7.5, color: Colors.blue, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-
-              // 4. 최하단 상태 점 (질병 등 핵심 상태 표시 유지)
               Positioned(
                 bottom: 2, left: 0, right: 0,
                 child: Row(
@@ -101,8 +84,8 @@ class CalendarDayTile extends StatelessWidget {
                   children: [
                     if (hasDisease) _dot(3, Colors.amber),
                     if (harvestIcon != null) ...[
-                       if (hasDisease) const SizedBox(width: 1),
-                       _dot(3, Colors.orange),
+                      if (hasDisease) const SizedBox(width: 1),
+                      _dot(3, Colors.orange),
                     ]
                   ],
                 ),
@@ -115,9 +98,7 @@ class CalendarDayTile extends StatelessWidget {
   }
 
   Widget _dot(double s, Color c) => Container(
-    width: s,
-    height: s,
-    margin: const EdgeInsets.symmetric(horizontal: 0.5),
+    width: s, height: s, margin: const EdgeInsets.symmetric(horizontal: 0.5),
     decoration: BoxDecoration(color: c, shape: BoxShape.circle),
   );
 }
