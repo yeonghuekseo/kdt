@@ -5,7 +5,7 @@ import '../../core/app_theme.dart';
 import '../../providers/environment_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/crop_provider.dart';
-import '../../widgets/app_widgets.dart'; // 🌟 추가: RangeSelectButton 사용
+import '../../widgets/app_widgets.dart';
 import '../../widgets/widget_farm_env_chart.dart';
 import '../screen_fruit_dashboard.dart';
 
@@ -19,12 +19,14 @@ class TabFarmMonitor extends StatelessWidget {
     final cropProvider = context.watch<CropProvider>();
     final envProvider = context.watch<EnvironmentProvider>();
 
+    // 🌟 화면에 보여줄 때 비워진(삭제된) 작물은 제외한 activeCrops만 사용
+    final activeFruits = cropProvider.activeCrops;
+
     return SingleChildScrollView(
       padding: EdgeInsets.only(top: topPadding, left: 16, right: 16, bottom: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 1. 환영 카드 블록
           Card(
             color: Colors.white, elevation: 0,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: Colors.grey.shade200)),
@@ -34,20 +36,15 @@ class TabFarmMonitor extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-
-          // 2. 농장 실시간 온습도 차트 블록 조립
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
                 children: [
-                  const Text('📊 온습도현황...', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const Text('📊 온습도현황', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(width: 8),
-                  // 🌟 [추가] 기간 선택 버튼 (CupertinoPicker 스크롤 UI 연결)
                   RangeSelectButton(
-                    label: '일',
-                    currentValue: envProvider.selectedRange,
-                    options: const [7, 14, 30, 60, 90],
+                    label: '일', currentValue: envProvider.selectedRange, options: const [7, 14, 30, 60, 90],
                     onSelected: (val) => envProvider.setRange(val),
                   ),
                 ],
@@ -59,25 +56,19 @@ class TabFarmMonitor extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            height: 400, // 🌟 차트 높이 확장에 맞춰 부모 높이도 조정
-            child: FarmEnvChartWidget(envProvider: envProvider),
-          ),
+          SizedBox(height: 400, child: FarmEnvChartWidget(envProvider: envProvider)),
           const SizedBox(height: 24),
-
-          // 3. 작물별 현황 그리드 블록
           const Text('작물별 현황', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
           if (cropProvider.isLoading)
             const SizedBox(height: 150, child: Center(child: CircularProgressIndicator(color: AppColors.primary)))
           else
             GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
+              shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 1.1, crossAxisSpacing: 12, mainAxisSpacing: 12),
-              itemCount: cropProvider.crops.length,
+              itemCount: activeFruits.length, // 🌟 activeFruits 개수만큼만 그림
               itemBuilder: (context, index) {
-                final fruit = cropProvider.crops[index];
+                final fruit = activeFruits[index];
                 return ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.buttonBg, foregroundColor: AppColors.buttonText, elevation: 0,

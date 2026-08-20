@@ -38,7 +38,7 @@ class _CropEditScreenState extends State<CropEditScreen> {
             children: [
               TextField(controller: iconController, decoration: const InputDecoration(labelText: '이모지 (아이콘)', hintText: '예: 🍉')),
               const SizedBox(height: 16),
-              TextField(controller: nameController, decoration: const InputDecoration(labelText: '작물 이름', hintText: '예: 수박')),
+              TextField(controller: nameController, decoration: const InputDecoration(labelText: '작물 이름', hintText: '빈칸으로 두면 작물이 삭제됩니다.')),
             ],
           ),
           actions: [
@@ -62,19 +62,17 @@ class _CropEditScreenState extends State<CropEditScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 🌟 [모듈화 적용]
     return EcoGlassScaffold(
       title: const Text('작물 등록'),
       builder: (context, topPadding, bottomPadding) {
         return Padding(
-          // 🌟 모듈에서 넘겨준 자동 계산 패딩 사용
           padding: EdgeInsets.only(top: topPadding, left: 16, right: 16, bottom: bottomPadding),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text('대시보드 작물 리스트 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary)),
               const SizedBox(height: 8),
-              const Text('수정할 작물을 터치하여 이름과 아이콘을 변경할 수 있습니다.', style: TextStyle(color: Colors.grey)),
+              const Text('이름을 빈칸으로 저장하면 해당 작물이 비활성화됩니다.', style: TextStyle(color: Colors.grey)),
               const SizedBox(height: 16),
               Expanded(
                 child: ListView.builder(
@@ -82,13 +80,16 @@ class _CropEditScreenState extends State<CropEditScreen> {
                   itemCount: _editableFruits.length,
                   itemBuilder: (context, index) {
                     final fruit = _editableFruits[index];
+                    final isEmpty = fruit.name.trim().isEmpty;
+
                     return Card(
                       elevation: 0, margin: const EdgeInsets.only(bottom: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: isEmpty ? Colors.grey.shade300 : Colors.grey.shade200)),
                       child: ListTile(
-                        leading: SizedBox(width: 50, child: FittedBox(fit: BoxFit.scaleDown, child: Text(fruit.icon, style: const TextStyle(fontSize: 32)))),
-                        title: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(fruit.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
-                        subtitle: Text('작물 ID: ${fruit.cropId}'),
+                        // 🌟 이름/아이콘이 비워졌을 때 표시할 문구 처리
+                        leading: SizedBox(width: 50, child: FittedBox(fit: BoxFit.scaleDown, child: Text(fruit.icon.isEmpty ? '❔' : fruit.icon, style: const TextStyle(fontSize: 32)))),
+                        title: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(isEmpty ? '(비어있음)' : fruit.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: isEmpty ? Colors.grey : Colors.black))),
+                        // 🌟 작물 ID 노출되던 서브타이틀 완전 삭제
                         trailing: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), shape: BoxShape.circle),

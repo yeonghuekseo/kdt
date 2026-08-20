@@ -12,6 +12,10 @@ class CropProvider extends ChangeNotifier {
   final Map<String, HarvestRange> _harvestPeriods = {};
 
   List<CropModel> get crops => _crops;
+
+  // 🌟 [핵심] 이름이 비워져 있는(삭제된) 작물은 필터링하여 유효한 작물만 반환하는 Getter
+  List<CropModel> get activeCrops => _crops.where((c) => c.name.trim().isNotEmpty).toList();
+
   bool get isLoading => _isLoading;
   Map<String, HarvestRange> get harvestPeriods => _harvestPeriods;
 
@@ -25,9 +29,10 @@ class CropProvider extends ChangeNotifier {
 
   Future<void> preCalculateAllHarvest(String userId) async {
     final random = math.Random();
-    final now = DateTime.now(); // 🌟 반복문 밖으로 빼서 객체 생성 최적화
+    final now = DateTime.now();
 
-    for (var crop in _crops) {
+    // 🌟 빈칸으로 둔 작물은 AI 계산을 아예 스킵하도록 activeCrops 사용
+    for (var crop in activeCrops) {
       List<RipenessData> dummyData = List.generate(7, (index) {
         final dateStr = '${now.subtract(Duration(days: 6 - index)).month.toString().padLeft(2,'0')}/${now.subtract(Duration(days: 6 - index)).day.toString().padLeft(2,'0')}';
         return RipenessData(date: dateStr, unripeCount: 2 + random.nextInt(10), ripeCount: 40 + random.nextInt(40), overripeCount: random.nextInt(8));
@@ -56,7 +61,6 @@ class CropProvider extends ChangeNotifier {
           break;
         }
       } catch (e) {
-        // 🌟 날짜 파싱 등 에러 발생 시 무음 실패 방지
         debugPrint('Harvest calculation parsing error: $e for date ${data.date}');
         continue;
       }

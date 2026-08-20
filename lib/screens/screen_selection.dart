@@ -40,7 +40,6 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> {
   }
 
   void _initializeGlobalData(String userId) async {
-    // 🌟 async/await 사용 시 BuildContext 참조 안전장치 적용 (미리 지역 변수화)
     final cropProvider = context.read<CropProvider>();
     final envProvider = context.read<EnvironmentProvider>();
     final alertProvider = context.read<AlertProvider>();
@@ -69,9 +68,18 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.settings_rounded),
-            onPressed: () {
+            // 🌟 설정 화면에서 돌아올 때(await) 최신 작물 데이터를 다시 불러와서 새로고침!
+            onPressed: () async {
               final currentFruits = context.read<CropProvider>().crops;
-              Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen(currentFruits: currentFruits)));
+              await Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen(currentFruits: currentFruits)));
+
+              if (mounted) {
+                final userId = context.read<AuthProvider>().currentUser?.userId ?? '';
+                if (userId.isNotEmpty) {
+                  await context.read<CropProvider>().fetchCrops(userId);
+                  context.read<CropProvider>().preCalculateAllHarvest(userId);
+                }
+              }
             },
           ),
         ],
