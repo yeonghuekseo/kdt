@@ -42,14 +42,14 @@ class AppTheme {
           bottomLeft: Radius.circular(4),
         ),
       ),
-      enabledBorder: const OutlineInputBorder(
-        borderRadius: BorderRadius.only(
+      enabledBorder: OutlineInputBorder(
+        borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(20),
           bottomRight: Radius.circular(20),
           topRight: Radius.circular(4),
           bottomLeft: Radius.circular(4),
         ),
-       borderSide: BorderSide(color:AppColors.primary,width: 1.0), //기본상태테두리 녹색
+        borderSide: BorderSide(color:AppColors.primary.withValues(alpha:0.5), width: 1.0), // 기본 상태 테두리
       ),
       focusedBorder: const OutlineInputBorder(
         borderRadius: BorderRadius.only(

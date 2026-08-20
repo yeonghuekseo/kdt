@@ -1,9 +1,13 @@
 // lib/screens/settings_screen.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../core/app_theme.dart';
 import '../widgets/app_widgets.dart';
 import 'screen_crop_edit.dart';
+import 'screen_login.dart';
 import '../models/app_models.dart';
+import '../providers/auth_provider.dart';
+import '../services/service_mqtt.dart';
 
 class SettingsScreen extends StatefulWidget {
   final List<CropModel> currentFruits;
@@ -60,9 +64,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
               ),
               const Divider(height: 1),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                child: Text('계정 관리', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.redAccent)),
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.1), shape: BoxShape.circle),
+                  child: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 24),
+                ),
+                title: const Text('로그아웃', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.redAccent)),
+                subtitle: const Text('현재 계정의 연결을 종료하고 로그인 화면으로 이동'),
+                onTap: () => _showLogoutDialog(context),
+              ),
+              const Divider(height: 1),
             ],
           );
         },
+      ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('로그아웃'),
+        content: const Text('정말 로그아웃 하시겠습니까?\n모든 실시간 연결이 종료됩니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () async {
+              // 1. MQTT 연결 종료
+              MqttService().disconnect();
+              // 2. AuthProvider 로그아웃 (로컬 저장 데이터 삭제)
+              await context.read<AuthProvider>().logout();
+              
+              if (!context.mounted) return;
+              
+              // 3. 로그인 화면으로 이동 및 스택 초기화
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+                (route) => false,
+              );
+            },
+            child: const Text('로그아웃', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }

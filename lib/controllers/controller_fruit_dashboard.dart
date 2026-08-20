@@ -1,38 +1,51 @@
 // lib/controllers/controller_fruit_dashboard.dart
-import 'package:flutter/foundation.dart';
-import '../core/api_config.dart';
-import '../services/service_api.dart';
-
-class RipenessData {
-  final String date;
-  final int unripeCount, ripeCount, overripeCount;
-  RipenessData({required this.date, required this.unripeCount, required this.ripeCount, required this.overripeCount});
-}
+import 'package:flutter/material.dart';
+import 'dart:math' as math;
+import '../providers/crop_provider.dart';
+import '../models/app_models.dart'; // 🌟 공유 모델 임포트
 
 class FruitDashboardController extends ChangeNotifier {
-  final String userId;
-  final String fruitCode;
+  final String userId, fruitCode;
+  final CropProvider cropProvider;
+  
   List<RipenessData> ripenessList = [];
+  int _selectedRange = 7;
 
-  FruitDashboardController({required this.userId, required this.fruitCode}) {
-    _loadRipenessData();
+  int get selectedRange => _selectedRange;
+
+  FruitDashboardController({required this.userId, required this.fruitCode, required this.cropProvider}) {
+    _initData();
   }
 
-  Future<void> _loadRipenessData() async {
-    final summaryUrl = ApiConfig.cropSummaryUrl(userId, fruitCode);
-    final summaryResponse = await ApiService.get(summaryUrl);
-
-    if (summaryResponse != null && summaryResponse['status'] == 'success' && summaryResponse['data'] != null) {
-      final data = summaryResponse['data'];
-      if (data.containsKey('growth_ranges') && data['growth_ranges'] is List) {
-        ripenessList = (data['growth_ranges'] as List).map((item) => RipenessData(
-          date: item['date']?.toString() ?? '알수없음',
-          unripeCount: int.tryParse(item['unripe']?.toString() ?? '0') ?? 0,
-          ripeCount: int.tryParse(item['ripe']?.toString() ?? '0') ?? 0,
-          overripeCount: int.tryParse(item['overripe']?.toString() ?? '0') ?? 0,
-        )).toList();
-      }
+  void _initData() {
+    final cached = cropProvider.getCachedRipeness(fruitCode);
+    if (cached != null) {
+      // 🌟 이제 캐시된 데이터와 타입이 일치하므로 안전하게 복사 가능
+      ripenessList = List<RipenessData>.from(cached);
+    } else {
+      _generateDummyData();
     }
+  }
+
+  void setRange(int range) {
+    _selectedRange = range;
+    _generateDummyData();
     notifyListeners();
+  }
+
+  void _generateDummyData() {
+    final random = math.Random();
+    final now = DateTime.now();
+    ripenessList = List.generate(_selectedRange, (index) {
+      final dateStr = '${now.subtract(Duration(days: (_selectedRange - 1) - index)).month.toString().padLeft(2,'0')}/${now.subtract(Duration(days: (_selectedRange - 1) - index)).day.toString().padLeft(2,'0')}';
+      return RipenessData(
+        date: dateStr,
+        unripeCount: 2 + random.nextInt(10), // 전역 로직과 동일하게 조정
+        ripeCount: 40 + random.nextInt(40),
+        overripeCount: random.nextInt(8),
+      );
+    });
+
+    cropProvider.updateHarvestPrediction(fruitCode, ripenessList);
   }
 }

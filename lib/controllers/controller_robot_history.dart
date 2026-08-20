@@ -13,11 +13,16 @@ class RobotHistoryController extends ChangeNotifier {
 
     // 🌟 ApiService를 이용해 데이터 호출 (코드가 극적으로 짧아짐)
     final url = ApiConfig.commandLogsUrl(userId);
-    final responseData = await ApiService.get(url);
+    final ApiResult result = await ApiService.get(url);
 
     // 받아온 데이터 가공 및 상태 저장
-    if (responseData != null && responseData['status'] == 'success' && responseData['data'] != null) {
-      historyLogs = responseData['data'];
+    if (result.success && result.data != null) {
+      final Map<String, dynamic> responseData = result.data as Map<String, dynamic>;
+      if (responseData['status'] == 'success' && responseData['data'] != null) {
+        historyLogs = responseData['data'];
+      } else {
+        historyLogs = [];
+      }
     } else {
       historyLogs = [];
     }

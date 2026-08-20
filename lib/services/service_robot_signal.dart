@@ -27,9 +27,9 @@ class RobotControlService {
         requestBody['zone_id'] = zoneId;
       }
 
-      final response = await ApiService.post(url, requestBody);
-      if (response == null) {
-        onError('로봇 명령 전송 실패');
+      final ApiResult result = await ApiService.post(url, requestBody);
+      if (!result.success) {
+        onError(result.message.isNotEmpty ? result.message : '로봇 명령 전송 실패');
     }
   }
 

@@ -1,12 +1,12 @@
 // lib/screens/tabs/tab_farm_monitor.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:fl_chart/fl_chart.dart';
-import '../../models/app_models.dart';
 import '../../core/app_theme.dart';
 import '../../providers/environment_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/crop_provider.dart';
+import '../../widgets/app_widgets.dart'; // 🌟 추가: RangeSelectButton 사용
+import '../../widgets/widget_farm_env_chart.dart';
 import '../screen_fruit_dashboard.dart';
 
 class TabFarmMonitor extends StatelessWidget {
@@ -15,21 +15,16 @@ class TabFarmMonitor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double topPadding = kToolbarHeight + MediaQuery.of(context).padding.top + 16.0;
-
-    final authProvider = context.watch<AuthProvider>();
+    final userName = context.watch<AuthProvider>().currentUser?.name ?? '사용자';
     final cropProvider = context.watch<CropProvider>();
-
-    final userId = authProvider.currentUser?.userId ?? '';
-    final userName = authProvider.currentUser?.name ?? '사용자';
-    final fruits = cropProvider.crops;
-    final isLoadingCrops = cropProvider.isLoading;
+    final envProvider = context.watch<EnvironmentProvider>();
 
     return SingleChildScrollView(
       padding: EdgeInsets.only(top: topPadding, left: 16, right: 16, bottom: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 환영 카드
+          // 1. 환영 카드 블록
           Card(
             color: Colors.white, elevation: 0,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: Colors.grey.shade200)),
@@ -38,71 +33,51 @@ class TabFarmMonitor extends StatelessWidget {
               child: Text('반갑습니다, $userName님! 🌱', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 16)),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 6),
 
-          // 농장 실시간 온습도 차트
+          // 2. 농장 실시간 온습도 차트 블록 조립
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('📊 농장 실시간 온습도', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               Row(
-                children: const [
-                  Icon(Icons.circle, size: 10, color: AppColors.chartTemp), SizedBox(width: 4), Text('온도', style: TextStyle(fontSize: 12)), SizedBox(width: 12),
-                  Icon(Icons.circle, size: 10, color: AppColors.chartHumid), SizedBox(width: 4), Text('습도', style: TextStyle(fontSize: 12)),
+                children: [
+                  const Text('📊 온습도현황...', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 8),
+                  // 🌟 [추가] 기간 선택 버튼 (CupertinoPicker 스크롤 UI 연결)
+                  RangeSelectButton(
+                    label: '일',
+                    currentValue: envProvider.selectedRange,
+                    options: const [7, 14, 30, 60, 90],
+                    onSelected: (val) => envProvider.setRange(val),
+                  ),
                 ],
-              )
+              ),
+              Row(children: const [
+                Icon(Icons.circle, size: 8, color: AppColors.chartTemp), SizedBox(width: 4), Text('온도', style: TextStyle(fontSize: 11)), SizedBox(width: 8),
+                Icon(Icons.circle, size: 8, color: AppColors.chartHumid), SizedBox(width: 4), Text('습도', style: TextStyle(fontSize: 11)),
+              ])
             ],
           ),
           const SizedBox(height: 12),
           SizedBox(
-            height: 180,
-            child: Consumer<EnvironmentProvider>(
-              builder: (context, envProvider, child) {
-                if (envProvider.isLoading) return const Center(child: CircularProgressIndicator(color: AppColors.primary));
-                if (envProvider.tempSpots.isEmpty || envProvider.humidSpots.isEmpty) {
-                  return const Center(child: Text('조회된 온습도 데이터가 없습니다.', style: TextStyle(color: Colors.grey)));
-                }
-
-                return LineChart(
-                  LineChartData(
-                    lineTouchData: const LineTouchData(enabled: false),
-                    minY: 0, maxY: 100,
-                    minX: envProvider.tempSpots.first.x, maxX: envProvider.tempSpots.last.x,
-                    gridData: const FlGridData(show: true, drawVerticalLine: false),
-                    titlesData: FlTitlesData(
-                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      bottomTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      leftTitles: AxisTitles(
-                        axisNameSize: 20,
-                        sideTitles: SideTitles(showTitles: true, reservedSize: 30, getTitlesWidget: (v, m) => v % 20 != 0 ? const SizedBox.shrink() : Text('${v.toInt()}', style: const TextStyle(fontSize: 10, color: Colors.grey))),
-                      ),
-                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    ),
-                    borderData: FlBorderData(show: true, border: Border.all(color: Colors.grey.shade300)),
-                    lineBarsData: [
-                      LineChartBarData(spots: envProvider.tempSpots, isCurved: true, color: AppColors.chartTemp, barWidth: 3, dotData: const FlDotData(show: true)),
-                      LineChartBarData(spots: envProvider.humidSpots, isCurved: true, color: AppColors.chartHumid, barWidth: 3, dotData: const FlDotData(show: false)),
-                    ],
-                  ),
-                );
-              },
-            ),
+            height: 400, // 🌟 차트 높이 확장에 맞춰 부모 높이도 조정
+            child: FarmEnvChartWidget(envProvider: envProvider),
           ),
           const SizedBox(height: 24),
 
-          // 작물 그리드
+          // 3. 작물별 현황 그리드 블록
           const Text('작물별 현황', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          if (isLoadingCrops)
+          const SizedBox(height: 4),
+          if (cropProvider.isLoading)
             const SizedBox(height: 150, child: Center(child: CircularProgressIndicator(color: AppColors.primary)))
           else
             GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 1.1, crossAxisSpacing: 12, mainAxisSpacing: 12),
-              itemCount: fruits.length,
+              itemCount: cropProvider.crops.length,
               itemBuilder: (context, index) {
-                final fruit = fruits[index];
+                final fruit = cropProvider.crops[index];
                 return ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.buttonBg, foregroundColor: AppColors.buttonText, elevation: 0,
@@ -110,7 +85,7 @@ class TabFarmMonitor extends StatelessWidget {
                     ),
                     onPressed: () => Navigator.push(context, MaterialPageRoute(
                         builder: (context) => FruitDashboardScreen(
-                          currentUserId: userId,
+                          currentUserId: context.read<AuthProvider>().currentUser?.userId ?? '',
                           currentUserName: userName,
                           selectedFruitName: fruit.name,
                           selectedFruitIcon: fruit.icon,

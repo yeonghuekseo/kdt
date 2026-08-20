@@ -1,52 +1,96 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import '../core/api_config.dart';
-import '../services/service_api.dart';
+import '../services/service_mqtt.dart';
+import '../core/app_constants.dart';
+import 'dart:async';
+
+class EnvDailyData {
+  final String date;
+  double maxTemp, minTemp, maxHumid, minHumid;
+  EnvDailyData({required this.date, required this.maxTemp, required this.minTemp, required this.maxHumid, required this.minHumid});
+}
 
 class EnvironmentProvider extends ChangeNotifier {
-  // 1. 상태 데이터 선언 (온도, 습도 차트 스팟 리스트)
-  List<FlSpot> _tempSpots = [
-    const FlSpot(0, 22), const FlSpot(1, 24), const FlSpot(2, 23), const FlSpot(3, 26), const FlSpot(4, 25)
-  ];
-  List<FlSpot> _humidSpots = [
-    const FlSpot(0, 60), const FlSpot(1, 62), const FlSpot(2, 58), const FlSpot(3, 65), const FlSpot(4, 63)
-  ];
+  final Map<String, EnvDailyData> _dailyMap = {};
+  final Map<String, String> _dateNotes = {}; 
+  List<EnvDailyData> _dailyLogs = [];
+  int _selectedRange = 7;
+  bool _isLoading = false; // 🌟 추가
+  bool _isDisposed = false;
+  StreamSubscription? _mqttSubscription;
+  Timer? _throttleTimer;
 
-  bool _isLoading = false;
+  List<EnvDailyData> get dailyLogs => _dailyLogs;
+  Map<String, EnvDailyData> get dailyMap => _dailyMap;
+  int get selectedRange => _selectedRange;
+  bool get isLoading => _isLoading; // 🌟 추가
 
-  // 2. 외부에서 안전하게 읽을 수 있도록 Getter 제공 (Encapsulation)
-  List<FlSpot> get tempSpots => _tempSpots;
-  List<FlSpot> get humidSpots => _humidSpots;
-  bool get isLoading => _isLoading;
+  EnvironmentProvider() { _generateDummyEnvironmentLogs(_selectedRange); }
 
-  // 3. 서버 통신을 통해 실제 온습도 데이터를 가져오는 메서드 (심화 로직)
-  Future<void> fetchEnvironmentLogs(String userId) async {
-    _isLoading = true;
-    notifyListeners(); // 로딩 시작을 화면에 알림
-
-    final url = ApiConfig.envLogsUrl(userId);
-    final responseData = await ApiService.get(url);
-
-    if (responseData != null && responseData['status'] == 'success' && responseData['data'] != null) {
-      final List<dynamic> logs = responseData['data'];
-      List<FlSpot> loadedTemp = [];
-      List<FlSpot> loadedHumid = [];
-
-      for (int i = 0; i < logs.length; i++) {
-        double tValue = (logs[i]['temperature'] ?? 0.0).toDouble();
-        double hValue = (logs[i]['humidity'] ?? 0.0).toDouble();
-        loadedTemp.add(FlSpot(i.toDouble(), tValue));
-        loadedHumid.add(FlSpot(i.toDouble(), hValue));
-      }
-
-      // 파싱된 데이터가 있다면 상태 교체
-      if (loadedTemp.isNotEmpty) {
-        _tempSpots = loadedTemp;
-        _humidSpots = loadedHumid;
-      }
-    }
-
-    _isLoading = false;
-    notifyListeners(); // 데이터 갱신 완료를 화면에 알림
+  @override
+  void dispose() {
+    _isDisposed = true;
+    _mqttSubscription?.cancel();
+    _throttleTimer?.cancel();
+    super.dispose();
   }
+
+  void _throttledNotify() {
+    if (_throttleTimer?.isActive ?? false) return;
+    _throttleTimer = Timer(AppConstants.mqttThrottle, () {
+      if (!_isDisposed) notifyListeners();
+    });
+  }
+
+  void initMqtt(String userId) {
+    if (_dailyLogs.isEmpty) _generateDummyEnvironmentLogs(_selectedRange);
+    _mqttSubscription?.cancel();
+    _mqttSubscription = MqttService().messageStream.listen((data) {
+      if (data['topic']?.toString().contains('env/log') ?? false) _updateWithRealtimeData(data);
+    });
+  }
+
+  void _updateWithRealtimeData(Map<String, dynamic> data) {
+    if (_dailyLogs.isEmpty) return;
+    final double t = (data['temperature'] ?? 0.0).toDouble();
+    final double h = (data['humidity'] ?? 0.0).toDouble();
+    var today = _dailyLogs.last;
+    bool changed = false;
+    if (t > today.maxTemp) { today.maxTemp = t; changed = true; }
+    if (t < today.minTemp) { today.minTemp = t; changed = true; }
+    if (h > today.maxHumid) { today.maxHumid = h; changed = true; }
+    if (h < today.minHumid) { today.minHumid = h; changed = true; }
+    if (changed) { _dailyMap[today.date] = today; _throttledNotify(); }
+  }
+
+  void _generateDummyEnvironmentLogs(int count) {
+    final random = math.Random();
+    final now = DateTime.now();
+    _dailyLogs.clear(); _dailyMap.clear();
+    for (int i = 0; i < count; i++) {
+      final dateStr = '${now.subtract(Duration(days: (count - 1) - i)).month.toString().padLeft(2,'0')}/${now.subtract(Duration(days: (count - 1) - i)).day.toString().padLeft(2,'0')}';
+      double minT = 10.0 + random.nextDouble() * 10;
+      double maxT = minT + 10.0 + random.nextDouble() * 5;
+      final newData = EnvDailyData(date: dateStr, maxTemp: _fix(maxT), minTemp: _fix(minT), maxHumid: _fix(50.0+random.nextDouble()*20), minHumid: _fix(20.0+random.nextDouble()*15));
+      _dailyLogs.add(newData); _dailyMap[dateStr] = newData;
+    }
+  }
+
+  double _fix(double v) => double.parse(v.toStringAsFixed(1));
+  String getNoteForDate(String ymd) => _dateNotes[ymd] ?? '';
+  void saveNoteForDate(String ymd, String note) { _dateNotes[ymd] = note; notifyListeners(); }
+  void setRange(int r) { _selectedRange = r; _generateDummyEnvironmentLogs(r); notifyListeners(); }
+
+  // 🌟 외부 화면에서 호출하는 공통 메서드
+  Future<void> fetchEnvironmentLogs(String userId) async {
+    initMqtt(userId);
+  }
+
+  // 전역 상수를 사용한 차트 데이터 변환
+  List<FlSpot> get maxTempSpots => _dailyLogs.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.maxTemp * AppConstants.tempScaleFactor)).toList();
+  List<FlSpot> get minTempSpots => _dailyLogs.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.minTemp * AppConstants.tempScaleFactor)).toList();
+  List<FlSpot> get maxHumidSpots => _dailyLogs.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.maxHumid)).toList();
+  List<FlSpot> get minHumidSpots => _dailyLogs.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.minHumid)).toList();
+  List<String> get dates => _dailyLogs.map((e) => e.date).toList();
 }

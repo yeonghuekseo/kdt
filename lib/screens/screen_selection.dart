@@ -2,15 +2,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-// 🌟 분리된 전역 상태 Provider들 임포트
 import '../providers/auth_provider.dart';
 import '../providers/crop_provider.dart';
 import '../providers/environment_provider.dart';
 import '../providers/alert_provider.dart';
 
 import '../core/app_theme.dart';
-import '../widgets/app_widgets.dart'; // GlassAppBar 사용
+import '../widgets/app_widgets.dart'; 
 import 'screen_settings.dart';
+import 'screen_calendar.dart'; // 🌟 추가
 import 'tabs/tab_farm_monitor.dart';
 import 'tabs/tab_robot_control.dart';
 
@@ -22,31 +22,43 @@ class FruitSelectionScreen extends StatefulWidget {
 }
 
 class _FruitSelectionScreenState extends State<FruitSelectionScreen> {
-  int _currentIndex = 0; // 하단 네비게이션 탭 인덱스
-  bool _isInit = false;
+  int _currentIndex = 0;
+  bool _isInitialized = false; // 🌟 초기화 여부를 더 명확한 변수명으로 관리
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // 화면이 최초 빌드될 때 딱 한 번만 전역 데이터 초기화 실행
-    if (!_isInit) {
-      _initializeGlobalData();
-      _isInit = true;
+    // 🌟 화면이 빌드될 때 세션 정보를 안전하게 가져와 한 번만 초기화 수행
+    if (!_isInitialized) {
+      final authProvider = context.read<AuthProvider>();
+      final userId = authProvider.currentUser?.userId ?? '';
+      
+      if (userId.isNotEmpty) {
+        _initializeGlobalData(userId);
+        _isInitialized = true;
+      }
     }
   }
 
-  void _initializeGlobalData() {
-    final userId = context.read<AuthProvider>().currentUser?.userId ?? '';
-    // 1. 작물 리스트 전역 로드 (설정 화면, 대시보드 화면이 공유)
-    context.read<CropProvider>().fetchCrops(userId);
-    // 2. 농장 온습도 로그 전역 로드 (모니터링 탭에서 사용)
+  void _initializeGlobalData(String userId) async {
+    final cropProvider = context.read<CropProvider>();
+    
+    // 1. 작물 리스트 로드 (먼저 수행)
+    await cropProvider.fetchCrops(userId);
+    // 🌟 [추가] 작물 리스트가 로드된 후 모든 수확기 예측 실행
+    await cropProvider.preCalculateAllHarvest(userId);
+
+    if (!mounted) return;
+
+    // 2. 농장 온습도 로그 로드
     context.read<EnvironmentProvider>().fetchEnvironmentLogs(userId);
-    // 3. 백그라운드 이상 감지 알림 및 싱글톤 MQTT 연결 시작
+    // 3. MQTT 연결 및 질병 알림 리스너 시작
     context.read<AlertProvider>().init(userId);
   }
 
   @override
   Widget build(BuildContext context) {
+    // 알림 개수 실시간 감시
     final alertCount = context.watch<AlertProvider>().alertLogs.length;
 
     return Scaffold(
@@ -54,6 +66,15 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> {
       appBar: GlassAppBar(
         title: const Text('스마트팜 통합 관제'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.calendar_month_rounded),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const CalendarScreen()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.settings_rounded),
             onPressed: () {
@@ -69,8 +90,6 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> {
       body: IndexedStack(
         index: _currentIndex,
         children: const [
-          // 하위 탭들 역시 더 이상 userId나 fruits 같은 파라미터를 넘겨받지 않습니다.
-          // 내부에서 직접 context.watch<Provider>로 데이터를 꺼내 씁니다.
           TabFarmMonitor(),
           TabRobotControl(),
         ],
@@ -84,10 +103,9 @@ class _FruitSelectionScreenState extends State<FruitSelectionScreen> {
         items: [
           BottomNavigationBarItem(
             icon: Stack(
-              clipBehavior: Clip.none, // 뱃지가 아이콘 영역 밖으로 튀어나가는 것을 허용
+              clipBehavior: Clip.none,
               children: [
                 const Icon(Icons.dashboard_rounded),
-                // 🌟 [추가된 UI] 알림 전역화의 이점: 로봇 제어 탭에 있더라도 알림이 오면 모니터링 아이콘에 빨간 뱃지가 뜹니다.
                 if (alertCount > 0)
                   Positioned(
                     right: -6,
